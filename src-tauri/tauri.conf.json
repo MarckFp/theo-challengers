@@ -37,7 +37,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUzNkFFMDY3NEQxMERGODcKUldTSDN4Qk5aK0JxNHphUm1temZmWG9LazNHdno5RHVVTzVhSGo5cmxnbmZ3UVNKVnNqdThpY00K",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJBRTUzODlDMjdFRDRBRjYKUldUMlN1MG5uRGpsdWdiUllDTFcwdEpWc1FWWFkyVzljK1YwQ2VOL2hWbFllSUIyeHNLbzVzeHoK",
       "endpoints": [
         "https://github.com/MarckFp/theo-challengers/releases/latest/download/latest.json"
       ],
