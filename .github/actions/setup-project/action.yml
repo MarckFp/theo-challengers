@@ -1,0 +1,21 @@
+name: 'Setup Project'
+description: 'Common setup steps for all deployment jobs'
+inputs:
+  tag-name:
+    description: 'Tag name for versioning'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/checkout@v6
+    - uses: oven-sh/setup-bun@v2
+    - shell: bash
+      run: |
+        git config --global user.email ${{ secrets.GH_EMAIL }}
+        git config --global user.name GitHub_Runner
+    - shell: bash
+      run: bun install
+    - shell: bash
+      run: bun pm version ${{ inputs.tag-name }}
+    - shell: bash
+      run: bun run tauri icon static/favicon.png
