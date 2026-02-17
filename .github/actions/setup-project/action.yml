@@ -11,6 +11,6 @@ runs:
     - shell: bash
       run: bun install
     - shell: bash
-      run: bun pm version ${{ inputs.tag-name }}
+      run: bun pm version ${{ inputs.tag-name }} --no-git-tag-version
     - shell: bash
       run: bun run tauri icon static/favicon.png
