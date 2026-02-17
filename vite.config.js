@@ -21,7 +21,7 @@ export default defineConfig(async () => ({
         strategies: 'generateSW', //This let vite-pwa plugin to generate the SW and the manifest
         registerType: 'prompt', //autoUpdate or prompt depending on what we want. This auto updates the app if a new version appears
         pwaAssets: {
-          disabled: true,
+          disabled: false,
           config: true,
         },
         manifest: {
