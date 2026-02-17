@@ -1,7 +1,7 @@
 {
   "name": "theo-challengers",
-  "version": "0.1.0",
-  "description": "",
+  "version": "1.0.0-beta",
+  "description": "Mini Game to challenge your friends with funny challenges that motivate you to have goals",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -23,6 +23,7 @@
     "svelte-i18n": "^4.0.1"
   },
   "devDependencies": {
+    "@sveltejs/adapter-cloudflare": "^7.2.7",
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.52.0",
     "@sveltejs/vite-plugin-svelte": "^5.1.1",

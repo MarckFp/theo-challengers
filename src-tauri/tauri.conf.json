@@ -1,7 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "theo-challengers",
-  "version": "0.1.0",
+  "productName": "Theo Challengers",
+  "longDescription": "Mini Game to challenge your friends with funny challenges that motivate you to have goals",
+  "shortDescription": "Mini Game to challenge your friends",
+  "version": "../package.json",
   "identifier": "com.marckfp.theo-challengers",
   "build": {
     "beforeDevCommand": "bun run dev",
@@ -12,9 +14,11 @@
   "app": {
     "windows": [
       {
-        "title": "theo-challengers",
+        "title": "Theo Challengers",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "resizable": true,
+        "maximized": true
       }
     ],
     "security": {

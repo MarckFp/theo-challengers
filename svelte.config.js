@@ -1,17 +1,20 @@
-// Tauri doesn't have a Node.js server to do proper SSR
-// so we use adapter-static with a fallback to index.html to put the site in SPA mode
-// See: https://svelte.dev/docs/kit/single-page-apps
-// See: https://v2.tauri.app/start/frontend/sveltekit/ for more info
-import adapter from "@sveltejs/adapter-static";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
+
+// Detect if running in GitHub Actions
+const isGitHubActions = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+
+// Lazy-load adapters to avoid loading Cloudflare adapter locally
+const selectedAdapter = isGitHubActions
+  ? (await import('@sveltejs/adapter-cloudflare')).default()
+  : (await import('@sveltejs/adapter-static')).default({
+      fallback: "index.html",
+    });
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
   preprocess: vitePreprocess(),
   kit: {
-    adapter: adapter({
-      fallback: "index.html",
-    }),
+    adapter: selectedAdapter,
   },
 };
 
