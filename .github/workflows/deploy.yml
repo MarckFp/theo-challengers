@@ -5,6 +5,10 @@ on:
     tags:
       - "*.*.*"
 
+env:
+  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+  GITHUB_TOKEN: ${{ github.token }}
+
 jobs:
   deploy-web:
     name: 'Web 🌐'
@@ -38,8 +42,6 @@ jobs:
       discussions: write
     environment:
       name: production
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6 
@@ -63,8 +65,6 @@ jobs:
       discussions: write
     environment:
       name: production
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v6
@@ -91,8 +91,6 @@ jobs:
       discussions: write
     environment:
       name: production
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -119,8 +117,6 @@ jobs:
       contents: write
     environment:
       name: production
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v6
       - name: Setup Project
@@ -132,14 +128,14 @@ jobs:
           distribution: 'adopt'
           java-version: '17'
       - uses: android-actions/setup-android@v3
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@063c0231f444e55760d98acb9c469b994269d4a5
         with:
-          tauriScript: 'bun run tauri android'
+          tauriScript: 'bun run tauri'
           tagName: ${{ github.ref_name }}
           releaseName: ${{ github.ref_name }}
           releaseDraft: false
           prerelease: false
-          mobile: "android"
+          mobile: 'android'
 
   deploy-ios:
     name: 'iOS 🍏'
@@ -148,8 +144,6 @@ jobs:
       contents: write
     environment:
       name: production
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v6
       - name: Setup Project
@@ -160,12 +154,11 @@ jobs:
         with:
           xcode-version: latest-stable
       - run: bun run tauri ios init
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@063c0231f444e55760d98acb9c469b994269d4a5
         with:
-          tauriScript: 'bun run tauri ios'
+          tauriScript: 'bun run tauri'
           tagName: ${{ github.ref_name }}
           releaseName: ${{ github.ref_name }}
           releaseDraft: false
           prerelease: false
-          args: -- --simulator
-          mobile: "ios"
+          mobile: 'ios'
