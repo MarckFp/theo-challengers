@@ -17,6 +17,7 @@ jobs:
     environment:
       name: production
     steps:
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-project
         with:
           tag-name: ${{ github.ref_name }}
@@ -37,6 +38,7 @@ jobs:
       name: production
     runs-on: windows-latest
     steps:
+      - uses: actions/checkout@v6 
       - uses: ./.github/actions/setup-project
         with:
           tag-name: ${{ github.ref_name }}
@@ -58,6 +60,7 @@ jobs:
       name: production
     runs-on: macos-latest
     steps:
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-project
         with:
           tag-name: ${{ github.ref_name }}
@@ -80,6 +83,7 @@ jobs:
       name: production
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-project
         with:
           tag-name: ${{ github.ref_name }}
@@ -103,6 +107,7 @@ jobs:
     environment:
       name: production
     steps:
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-project
         with:
           tag-name: ${{ github.ref_name }}
@@ -128,6 +133,7 @@ jobs:
     environment:
       name: production
     steps:
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-project
         with:
           tag-name: ${{ github.ref_name }}
