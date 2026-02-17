@@ -16,6 +16,8 @@ jobs:
       contents: write
     environment:
       name: production
+    env:
+      WEB_ADAPTER: "true"
     steps:
       - uses: actions/checkout@v6
       - name: Setup Project

@@ -1,7 +1,7 @@
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 
 // Detect if running in GitHub Actions
-const isGitHubActions = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+const isGitHubActions = process.env.WEB_ADAPTER === 'true';
 
 // Lazy-load adapters to avoid loading Cloudflare adapter locally
 const selectedAdapter = isGitHubActions
