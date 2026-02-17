@@ -161,10 +161,6 @@ jobs:
         with:
           xcode-version: latest-stable
       - run: bun run tauri ios init
-      - name: Disable Xcode Team Requirement
-        run: |
-          sed -i '' 's/DevelopmentTeam = .*/DevelopmentTeam = "";/g' src-tauri/gen/apple/theo-challengers.xcodeproj/project.pbxproj
-          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' src-tauri/gen/apple/theo-challengers.xcodeproj/project.pbxproj
       - uses: tauri-apps/tauri-action@063c0231f444e55760d98acb9c469b994269d4a5
         with:
           tauriScript: 'bun run tauri'

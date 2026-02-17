@@ -18,6 +18,11 @@ export class MyDatabaseDexie extends Dexie {
             inventory: '++id, player_id',
             challengue: '++id, player_id'
         })
+        this.version(3).stores({
+            player: '++id, nickname, score', // Index score for leaderboard
+            inventory: '++id, player_id',
+            challengue: '++id, player_id'
+        })
     }
 }
 

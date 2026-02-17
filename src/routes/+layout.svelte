@@ -2,8 +2,14 @@
     import '../app.css'
     import {pwaAssetsHead} from 'virtual:pwa-assets/head'
     import {pwaInfo} from 'virtual:pwa-info'
+    import { onMount } from 'svelte';
 
     $: webManifestLink = pwaInfo ? pwaInfo.webManifest.linkTag : ''
+
+    onMount(() => {
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    });
 </script>
 
 <svelte:head>

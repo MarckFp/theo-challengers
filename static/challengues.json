@@ -1,0 +1,60 @@
+{
+    "challengues": [
+        {
+            "title": "¡Primer comentario!",
+            "description": "Comenta antes que nadie más y gana",
+            "points": 1,
+            "cost": 1,
+            "reward": 1,
+            "icon": "👣"
+        },
+        {
+            "title": "Comenta basandote en la Biblia",
+            "description": "Haz un comentario que se base en un texto bíblico.",
+            "points": 1,
+            "cost": 1,
+            "reward": 1,
+            "icon": "👣"
+        },
+        {
+            "title": "Anima a un hermano",
+            "description": "Destaca algo que te guste de su forma de ser o de su participación. ¡Un cumplido sincero siempre es bienvenido!",
+            "points": 1,
+            "cost": 1,
+            "reward": 1,
+            "icon": "👣"
+        },
+        {
+            "title": "Ofrece más comentarios",
+            "description": "Comenta dos o más veces. ¡Cuantas más mejor!",
+            "points": 2,
+            "cost": 3,
+            "reward": 1,
+            "icon": "👣"
+        },
+        {
+            "title": "Conversa con un hermano mayor",
+            "description": "Habla con un hermano mayor y aprende de su experiencia. No vale un simple saludo, ¡debe ser una conversación real!",
+            "points": 5,
+            "cost": 5,
+            "reward": 3,
+            "icon": "🚀"
+        },
+        {
+            "title": "Predica con alguien diferente",
+            "description": "Queda con alguien que no conozcas bien y predica juntos. ¡Es una gran oportunidad para hacer nuevos amigos!",
+            "points": 5,
+            "cost": 5,
+            "reward": 3,
+            "icon": "⭐"
+        },
+        {
+            "title": "Ofrecete para ayudar en la limpieza",
+            "description": "Sea que te toque limpiar... o no... Ayuda en la limpieza y mantén el lugar ordenado. ¡Tu esfuerzo será recompensado!",
+            "points": 3,
+            "cost": 3,
+            "reward": 1,
+            "icon": "🏆"
+        }
+    ]
+}
