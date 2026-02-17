@@ -156,6 +156,11 @@ jobs:
           xcode-version: latest-stable
       - run: bun run tauri ios init
       - uses: tauri-apps/tauri-action@063c0231f444e55760d98acb9c469b994269d4a5
+        env:
+          CODE_SIGNING_ALLOWED: NO
+          CODE_SIGNING_REQUIRED: NO
+          CODE_SIGNING_IDENTITY: ""
+          CODE_SIGN_ENTITLEMENTS: ""
         with:
           tauriScript: 'bun run tauri'
           tagName: ${{ github.ref_name }}
