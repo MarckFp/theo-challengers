@@ -38,6 +38,8 @@ jobs:
       discussions: write
     environment:
       name: production
+    env:
+      GH_TOKEN: ${{ github.token }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6 
@@ -61,6 +63,8 @@ jobs:
       discussions: write
     environment:
       name: production
+    env:
+      GH_TOKEN: ${{ github.token }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v6
@@ -69,6 +73,8 @@ jobs:
         with:
           tag-name: ${{ github.ref_name }}
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
       - uses: tauri-apps/tauri-action@v0
         with:
           tauriScript: 'bun run tauri'
@@ -85,6 +91,8 @@ jobs:
       discussions: write
     environment:
       name: production
+    env:
+      GH_TOKEN: ${{ github.token }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -111,6 +119,8 @@ jobs:
       contents: write
     environment:
       name: production
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v6
       - name: Setup Project
@@ -124,7 +134,7 @@ jobs:
       - uses: android-actions/setup-android@v3
       - uses: tauri-apps/tauri-action@v0
         with:
-          tauriScript: 'bun run tauri android '
+          tauriScript: 'bun run tauri android'
           tagName: ${{ github.ref_name }}
           releaseName: ${{ github.ref_name }}
           releaseDraft: false
@@ -137,6 +147,8 @@ jobs:
       contents: write
     environment:
       name: production
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v6
       - name: Setup Project
@@ -146,6 +158,8 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
+      - shell: |
+          bun run tauri ios init
       - uses: tauri-apps/tauri-action@v0
         with:
           tauriScript: 'bun run tauri ios'
