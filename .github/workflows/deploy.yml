@@ -139,6 +139,7 @@ jobs:
           releaseName: ${{ github.ref_name }}
           releaseDraft: false
           prerelease: false
+          mobile: "android"
 
   deploy-ios:
     name: 'iOS 🍏'
@@ -166,4 +167,5 @@ jobs:
           releaseName: ${{ github.ref_name }}
           releaseDraft: false
           prerelease: false
-          args: --simulator
+          args: -- --simulator
+          mobile: "ios"
