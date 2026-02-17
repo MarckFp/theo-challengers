@@ -158,8 +158,7 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
-      - shell: |
-          bun run tauri ios init
+      - run: bun run tauri ios init
       - uses: tauri-apps/tauri-action@v0
         with:
           tauriScript: 'bun run tauri ios'
