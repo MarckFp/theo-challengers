@@ -21,6 +21,7 @@ jobs:
       contents: write
     environment:
       name: production
+      url: https://head.theo-challengers.pages.dev/
     env:
       WEB_ADAPTER: "true"
     steps:
@@ -145,6 +146,11 @@ jobs:
       contents: write
     environment:
       name: production
+    env:
+      CODE_SIGNING_ALLOWED: NO
+      CODE_SIGNING_REQUIRED: NO
+      CODE_SIGNING_IDENTITY: ""
+      CODE_SIGN_ENTITLEMENTS: ""
     steps:
       - uses: actions/checkout@v6
       - name: Setup Project
@@ -155,12 +161,11 @@ jobs:
         with:
           xcode-version: latest-stable
       - run: bun run tauri ios init
+      - name: Disable Xcode Team Requirement
+        run: |
+          sed -i '' 's/DevelopmentTeam = .*/DevelopmentTeam = "";/g' src-tauri/gen/apple/theo-challengers.xcodeproj/project.pbxproj
+          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' src-tauri/gen/apple/theo-challengers.xcodeproj/project.pbxproj
       - uses: tauri-apps/tauri-action@063c0231f444e55760d98acb9c469b994269d4a5
-        env:
-          CODE_SIGNING_ALLOWED: NO
-          CODE_SIGNING_REQUIRED: NO
-          CODE_SIGNING_IDENTITY: ""
-          CODE_SIGN_ENTITLEMENTS: ""
         with:
           tauriScript: 'bun run tauri'
           tagName: ${{ github.ref_name }}
