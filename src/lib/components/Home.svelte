@@ -4,6 +4,7 @@
     import StoreTab from './tabs/StoreTab.svelte';
     import InventoryTab from './tabs/InventoryTab.svelte';
     import ProfileTab from './tabs/ProfileTab.svelte';
+    import { fade } from 'svelte/transition';
 
     type Tab = 'home' | 'leaderboard' | 'store' | 'inventory' | 'profile';
     let activeTab = $state<Tab>('home');
@@ -27,22 +28,32 @@
 
     function handleTabChange(tab: Tab) {
         activeTab = tab;
-        window.scrollTo({ top: 0, behavior: 'instant' });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 </script>
 
-<div class="bg-base-100 min-h-screen pb-24 md:pb-0 md:pl-20">
-    <div class="container mx-auto max-w-lg p-4 min-h-screen">
+<div class="bg-base-100 min-h-screen pb-24 md:pb-0 md:pl-20 relative overflow-x-hidden">
+    <div class="container mx-auto max-w-lg min-h-screen relative">
         {#if activeTab === 'home'}
-            <HomeTab />
+            <div in:fade={{ duration: 200, delay: 100 }} out:fade={{ duration: 100 }} class="absolute inset-0 p-4">
+                <HomeTab />
+            </div>
         {:else if activeTab === 'leaderboard'}
-             <LeaderboardTab />
+            <div in:fade={{ duration: 200, delay: 100 }} out:fade={{ duration: 100 }} class="absolute inset-0 p-4">
+                <LeaderboardTab />
+            </div>
         {:else if activeTab === 'store'}
-            <StoreTab />
+            <div in:fade={{ duration: 200, delay: 100 }} out:fade={{ duration: 100 }} class="absolute inset-0 p-4">
+                <StoreTab />
+            </div>
         {:else if activeTab === 'inventory'}
-            <InventoryTab />
+            <div in:fade={{ duration: 200, delay: 100 }} out:fade={{ duration: 100 }} class="absolute inset-0 p-4">
+                <InventoryTab />
+            </div>
         {:else if activeTab === 'profile'}
-            <ProfileTab />
+            <div in:fade={{ duration: 200, delay: 100 }} out:fade={{ duration: 100 }} class="absolute inset-0 p-4">
+                <ProfileTab />
+            </div>
         {/if}
     </div>
 
