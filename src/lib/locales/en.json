@@ -76,7 +76,6 @@
         "points": "Points",
         "available": "Available",
         "active_challenges": "Active Challenges",
-        "no_active_challenges": "No active challenges. Wait for a friend to send you one!",
         "from": "From: {user}",
         "mark_complete": "Mark Complete",
         "send_challenge": "Send Challenge",
