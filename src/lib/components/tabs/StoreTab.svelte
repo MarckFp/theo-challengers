@@ -8,8 +8,10 @@
     let players = $state<Player[]>([]);
     let inventoryCount = $state(0);
     let purchasingItem = $state<string | null>(null);
+    let inventoryItems = $state<Inventory[]>([]);
     
     let isConfirmModalOpen = $state(false);
+    let isRefreshConfirmOpen = $state(false);
     let itemToBuy = $state<any>(null);
 
     // Subscribe to player data
@@ -20,13 +22,14 @@
         return () => sub.unsubscribe();
     });
 
-    // Subscribe to inventory count
+    // Subscribe to inventory items
     $effect(() => {
         if (players.length === 0 || !players[0].id) return;
         const sub = liveQuery(() => 
-            db.inventory.where('player_id').equals(players[0].id!).count()
-        ).subscribe(c => {
-            inventoryCount = c;
+            db.inventory.where('player_id').equals(players[0].id!).toArray()
+        ).subscribe(items => {
+            inventoryItems = items;
+            inventoryCount = items.length;
         });
         return () => sub.unsubscribe();
     });
@@ -54,7 +57,30 @@
 
             // Simple shuffle
             const shuffled = [...allChallenges].sort(() => 0.5 - Math.random());
-            const newItems = shuffled.slice(0, 4);
+            const newItemsRaw = shuffled.slice(0, 4);
+
+            // Check if items are already in inventory (for daily refresh)
+            // Note: During daily refresh, we might not have inventoryItems populated yet if this runs on mount immediately
+            // But we can check db directly if needed, or rely on the UI to disable them later.
+            // However, store items are persisted in player object. 
+            // Better to let them be 'fresh' but when rendered, we check if they are purchased.
+            // Actually, the UI logic {item.purchased} relies on the property in the item object.
+            // So we should probably check inventory here.
+            
+            // To keep it simple for daily refresh, we just store raw items.
+            // The UI should ideally check against inventory for 'disabled' state properly, 
+            // but currently it checks `item.purchased` which is a property WE set.
+            
+            // Let's stick to the current pattern: we set purchased: true if they buy it.
+            // For refresh, if they already own it, we should probably set purchased: true immediately so they can't buy it again.
+            
+            // Re-fetching inventory to be sure
+            const currentInventory = await db.inventory.where('player_id').equals(p.id!).toArray();
+            
+            const newItems = newItemsRaw.map((item: any) => {
+                 const alreadyOwned = currentInventory.some((i: any) => i.title === item.title && i.description === item.description);
+                 return alreadyOwned ? { ...item, purchased: true } : item;
+            });
 
             if (p.id) {
                 await db.player.update(p.id, {
@@ -64,6 +90,48 @@
             }
         } catch (e) {
             console.error('Failed to refresh shop', e);
+        }
+    }
+
+    function initiateRefresh() {
+        if (coins < 3) {
+            // alert($_('store.refresh_not_enough')); // Using UI alert might be better but simple alert works
+            return; 
+        }
+        isRefreshConfirmOpen = true;
+    }
+
+    async function confirmRefresh() {
+        if (!player || !player.id) return;
+        if (coins < 3) {
+             isRefreshConfirmOpen = false;
+             return;
+        }
+
+        isRefreshConfirmOpen = false;
+        
+        try {
+            const res = await fetch('/challengues.json');
+            const data = await res.json();
+            const allChallenges = data.challengues;
+
+            // Simple shuffle
+            const shuffled = [...allChallenges].sort(() => 0.5 - Math.random());
+            const newItemsRaw = shuffled.slice(0, 4);
+            
+            // Mark items as purchased if in inventory
+            const newItems = newItemsRaw.map((item: any) => {
+                 const alreadyOwned = inventoryItems.some(i => i.title === item.title && i.description === item.description);
+                 return alreadyOwned ? { ...item, purchased: true } : item;
+            });
+
+            await db.player.update(player.id, {
+                coins: player.coins - 3,
+                shopItems: newItems
+            });
+
+        } catch (e) {
+            console.error('Failed to manual refresh shop', e);
         }
     }
 
@@ -196,6 +264,19 @@
         </div>
     {/if}
 
+    <div class="divider my-0"></div>
+
+    <div class="flex justify-center pb-4">
+        <button 
+            class="btn btn-secondary btn-outline w-full gap-2"
+            disabled={coins < 3}
+            onclick={initiateRefresh}
+        >
+            <span class="text-xl">🔄</span>
+            {$_('store.refresh_button')}
+        </button>
+    </div>
+
     <!-- Purchase Confirmation Modal -->
     <dialog class="modal modal-bottom sm:modal-middle" open={isConfirmModalOpen}>
         <div class="modal-box">
@@ -206,12 +287,29 @@
                 </p>
             {/if}
             <div class="modal-action">
-                <button class="btn" onclick={() => isConfirmModalOpen = false}>{$_('store.cancel')}</button>
+                <button class="btn" onclick={() => isConfirmModalOpen = false}>Close</button>
                 <button class="btn btn-primary" onclick={confirmBuy}>{$_('store.buy')}</button>
             </div>
         </div>
         <form method="dialog" class="modal-backdrop">
-            <button onclick={() => isConfirmModalOpen = false}>{$_('profile.close')}</button>
+            <button onclick={() => isConfirmModalOpen = false}>close</button>
+        </form>
+    </dialog>
+
+    <!-- Refresh Confirmation Modal -->
+    <dialog class="modal modal-bottom sm:modal-middle" open={isRefreshConfirmOpen}>
+        <div class="modal-box">
+             <h3 class="font-bold text-lg">{$_('store.refresh_button')}</h3>
+             <p class="py-4">
+                {$_('store.refresh_store_confirm')}
+             </p>
+            <div class="modal-action">
+                <button class="btn" onclick={() => isRefreshConfirmOpen = false}>{$_('store.cancel')}</button>
+                <button class="btn btn-secondary" onclick={confirmRefresh}>{$_('store.buy')} 3 🪙</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button onclick={() => isRefreshConfirmOpen = false}>close</button>
         </form>
     </dialog>
 </div>

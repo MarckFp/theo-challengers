@@ -6,7 +6,7 @@
             "points": 1,
             "cost": 1,
             "reward": 1,
-            "icon": "👣"
+            "icon": "⚡"
         },
         {
             "title": "Comenta basandote en la Biblia",
@@ -14,7 +14,7 @@
             "points": 1,
             "cost": 1,
             "reward": 1,
-            "icon": "👣"
+            "icon": "📖"
         },
         {
             "title": "Anima a un hermano",
@@ -22,7 +22,7 @@
             "points": 1,
             "cost": 1,
             "reward": 1,
-            "icon": "👣"
+            "icon": "🧡"
         },
         {
             "title": "Ofrece más comentarios",
@@ -30,7 +30,7 @@
             "points": 2,
             "cost": 3,
             "reward": 1,
-            "icon": "👣"
+            "icon": "🗣️"
         },
         {
             "title": "Conversa con un hermano mayor",
@@ -38,7 +38,7 @@
             "points": 5,
             "cost": 5,
             "reward": 3,
-            "icon": "🚀"
+            "icon": "👴"
         },
         {
             "title": "Predica con alguien diferente",
@@ -46,7 +46,7 @@
             "points": 5,
             "cost": 5,
             "reward": 3,
-            "icon": "⭐"
+            "icon": "🤝"
         },
         {
             "title": "Ofrecete para ayudar en la limpieza",
@@ -54,7 +54,71 @@
             "points": 3,
             "cost": 3,
             "reward": 1,
-            "icon": "🏆"
+            "icon": "🧹"
+        },
+        {
+            "title": "Hospitalidad Express",
+            "description": "Invita a un hermano (o a una familia) a tomar un café o un snack después de la reunión o la predicación.",
+            "points": 10,
+            "cost": 5,
+            "reward": 8,
+            "icon": "☕"
+        },
+        {
+            "title": "El 'Hola' más difícil",
+            "description": "Saluda y conversa brevemente con alguien de la congregación con quien casi nunca hablas.",
+            "points": 4,
+            "cost": 2,
+            "reward": 3,
+            "icon": "🤝"
+        },
+        {
+            "title": "Cita con un precursor",
+            "description": "Acompaña a un precursor regular en su horario de predicación. ¡Su entusiasmo se contagia!",
+            "points": 7,
+            "cost": 4,
+            "reward": 5,
+            "icon": "👜"
+        },
+        {
+            "title": "Corresponsal de ánimo",
+            "description": "Envía un mensaje de texto o escribe una tarjeta a un hermano que esté enfermo o que no haya podido ir a la reunión.",
+            "points": 5,
+            "cost": 3,
+            "reward": 4,
+            "icon": "✉️"
+        },
+        {
+            "title": "Eco en la reunión",
+            "description": "Menciona un punto que aprendiste en la reunión a alguien de tu familia o a un amigo al terminar.",
+            "points": 3,
+            "cost": 2,
+            "reward": 2,
+            "icon": "📢"
+        },
+        {
+            "title": "Investigador bíblico",
+            "description": "Busca un detalle curioso en la lectura de la Biblia de la semana y compártelo con alguien en el Salón.",
+            "points": 6,
+            "cost": 3,
+            "reward": 4,
+            "icon": "🔍"
+        },
+        {
+            "title": "Mano derecha",
+            "description": "Pregunta a los hermanos que tienen asignaciones (sonido, acomodadores, plataforma...) si necesitan ayuda con algo sencillo.",
+            "points": 5,
+            "cost": 3,
+            "reward": 4,
+            "icon": "🛠️"
+        },
+        {
+            "title": "Entrevista de fe",
+            "description": "Pregúntale a un hermano con muchos años bautizado: '¿Qué es lo que más te ha ayudado a aguantar?'. ¡Escucha con atención!",
+            "points": 9,
+            "cost": 3,
+            "reward": 7,
+            "icon": "🎤"
         }
     ]
 }
