@@ -3,12 +3,14 @@ import type {Player} from './models/player'
 import type {Leaderboard} from './models/leaderboard'
 import type {Inventory} from './models/inventory'
 import type {Challengue} from './models/challengue'
+import type {SentChallenge} from './models/sentChallenge'
 
 export class MyDatabaseDexie extends Dexie {
     player!: Table<Player>
     leaderboard!: Table<Leaderboard>
     inventory!: Table<Inventory>
     challengue!: Table<Challengue>
+    sentChallenge!: Table<SentChallenge>
 
     constructor() {
         super('theochallenguers')
@@ -22,6 +24,12 @@ export class MyDatabaseDexie extends Dexie {
             player: '++id, nickname, score', // Index score for leaderboard
             inventory: '++id, player_id',
             challengue: '++id, player_id'
+        })
+        this.version(4).stores({
+            player: '++id, nickname, score', // Index score for leaderboard
+            inventory: '++id, player_id',
+            challengue: '++id, player_id, uuid',
+            sentChallenge: '++id, uuid, player_id'
         })
     }
 }

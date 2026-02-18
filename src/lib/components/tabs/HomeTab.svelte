@@ -4,8 +4,6 @@
     import type { Player } from '$lib/models/player';
     import type { Inventory } from '$lib/models/inventory';
     import type { Challengue } from '$lib/models/challengue';
-    import QRCode from 'qrcode';
-    import { Html5QrcodeScanner } from 'html5-qrcode';
     import { onMount } from 'svelte';
 
     let players = $state<Player[]>([]);
@@ -15,11 +13,23 @@
     
     // Modal State
     let isSendModalOpen = $state(false);
-    let isReceiveModalOpen = $state(false);
     
+    // Authorization Modal
+    let isAuthModalOpen = $state(false);
+    let authChallengeId = $state('');
+    let authKeyInput = $state('');
+
     let selectedItemId = $state<number | null>(null);
     let customMessage = $state('');
-    let generatedQRUrl = $state<string | null>(null);
+    let generatedShareLink = $state<string | null>(null);
+    
+    // Pending claim request info (for Receiver)
+    let pendingClaimRequest = $state<{id: string, from: string, item: any, message?: string} | null>(null);
+    let generatedClaimCode = $state<string | null>(null);
+
+    // Pending sent info (for Sender)
+    let pendingVerificationId = $state<string | null>(null);
+    let generatedAuthKey = $state<string | null>(null);
 
     // Fetch Players
     $effect(() => {
@@ -55,100 +65,199 @@
     });
 
 
+    // Check for incoming challenge via URL (Share Link)
+    $effect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const challengeData = params.get('challenge');
+        if (challengeData && currentUser?.id) {
+             try {
+                 const json = atob(challengeData);
+                 const data = JSON.parse(json);
+                 handleIncomingShare(data);
+                 // Clean URL
+                 window.history.replaceState({}, document.title, window.location.pathname);
+             } catch (e) {
+                 console.error("Invalid challenge link", e);
+             }
+        }
+    });
+
     function openSendModal() {
         isSendModalOpen = true;
         (document.getElementById('send_challenge_modal') as HTMLDialogElement)?.showModal();
     }
 
+    function openVerifyModal() {
+        (document.getElementById('verify_claim_modal') as HTMLDialogElement)?.showModal();
+    }
+
+    function closeVerifyModal() {
+        pendingVerificationId = null;
+        generatedAuthKey = null;
+        (document.getElementById('verify_claim_modal') as HTMLDialogElement)?.close();
+    }
+
     function closeSendModal() {
         isSendModalOpen = false;
-        generatedQRUrl = null;
+        generatedShareLink = null;
         selectedItemId = null;
         customMessage = '';
         (document.getElementById('send_challenge_modal') as HTMLDialogElement)?.close();
     }
-
-    function openReceiveModal() {
-        isReceiveModalOpen = true;
-        (document.getElementById('receive_challenge_modal') as HTMLDialogElement)?.showModal();
-        startScanner();
+    
+    function closeClaimModal() {
+        pendingClaimRequest = null;
+        generatedClaimCode = null;
+        authKeyInput = '';
+        (document.getElementById('claim_request_modal') as HTMLDialogElement)?.close();
     }
 
-    function closeReceiveModal() {
-        isReceiveModalOpen = false;
-        (document.getElementById('receive_challenge_modal') as HTMLDialogElement)?.close();
-    }
-
-    async function generateChallengeQR() {
+    async function generateChallengeLink() {
         if (!selectedItemId || !currentUser) return;
         
         const item = inventory.find(i => i.id === selectedItemId);
         if (!item) return;
 
+        const uniqueId = crypto.randomUUID();
+
+        // Save locally as pending
+        await db.sentChallenge.add({
+            uuid: uniqueId,
+            player_id: currentUser.id!,
+            title: item.title,
+            description: item.description,
+            points: item.points,
+            message: customMessage,
+            created_at: new Date(),
+            status: 'pending'
+        });
+
+        // Delete from inventory
+        await db.inventory.delete(item.id!);
+
         const payload = {
-            type: 'theo-challenge-v1',
+            type: 'theo-challenge-req-v1',
+            id: uniqueId,
             from: currentUser.nickname,
             item: {
                 title: item.title,
                 points: item.points,
-                id: item.id // To remove later if needed
+                description: item.description
             },
-            message: customMessage || "I challenge you!"
+            message: customMessage
         };
 
         try {
-            generatedQRUrl = await QRCode.toDataURL(JSON.stringify(payload));
-            // Opt: Remove item from inventory immediately? Or wait for confirmation?
-            // For now, let's just keep it simple - generating the code "spends" the item visually
-             await db.inventory.delete(item.id!);
+            const jsonPayload = JSON.stringify(payload);
+            const base64 = btoa(jsonPayload);
+            generatedShareLink = `${window.location.origin}?challenge=${base64}`;
         } catch (err) {
             console.error(err);
         }
     }
     
-    let scanner: Html5QrcodeScanner | null = null;
+    // STEP 1: Receiver opens link -> Sees "Request Claim"
+    async function handleIncomingShare(data: any) {
+        if (data.type === 'theo-challenge-req-v1' && currentUser?.id) {
+            if (data.from === currentUser.nickname) {
+                alert("You cannot accept your own challenge!");
+                return;
+            }
 
-    function startScanner() {
-        // Wait for modal to render
-        setTimeout(() => {
-            if (scanner) { scanner.clear(); }
-            scanner = new Html5QrcodeScanner(
-                "reader",
-                { fps: 10, qrbox: { width: 250, height: 250 } },
-                /* verbose= */ false
-            );
-            scanner.render(onScanSuccess, onScanFailure);
-        }, 300);
+            // Check if already accepted
+            const existing = await db.challengue.where('uuid').equals(data.id).first();
+            if (existing) {
+                alert("You have already accepted this challenge!");
+                return;
+            }
+
+            // Show Claim Request Modal
+            pendingClaimRequest = data;
+            
+             // Create Claim Code:  challengeUUID | receiverNickname
+            const claimPayload = {
+                type: 'theo-claim-v1',
+                cid: data.id,
+                claimer: currentUser.nickname
+            };
+            generatedClaimCode = btoa(JSON.stringify(claimPayload));
+
+            (document.getElementById('claim_request_modal') as HTMLDialogElement)?.showModal();
+        } 
     }
 
-    async function onScanSuccess(decodedText: string, decodedResult: any) {
+    // STEP 2: Sender verifies Claim Code -> Generates Auth Key
+    async function verifyClaimCode() {
         try {
-            const data = JSON.parse(decodedText);
-            if (data.type === 'theo-challenge-v1' && currentUser?.id) {
-                // Add challenge
-                await db.challengue.add({
-                    player_id: currentUser.id,
-                    title: data.item.title,
-                    description: data.message,
-                    points: data.item.points,
-                    reward: data.item.points, // Or logic for reward
-                    from_player: data.from,
-                    message: data.message
-                });
+            const json = atob(pendingVerificationId || '');
+            const data = JSON.parse(json);
 
-                alert(`Challenge received from ${data.from}!`);
-                if (scanner) scanner.clear();
-                closeReceiveModal();
-            } else {
-                console.warn("Invalid QR Code content", data);
+            if (data.type !== 'theo-claim-v1') throw new Error("Invalid code");
+
+            // Check if challenge exists and is pending
+            const challenge = await db.sentChallenge.where('uuid').equals(data.cid).first();
+            
+            if (!challenge) {
+                 alert("Challenge not found! Maybe you deleted it?");
+                 return;
             }
+
+            if (challenge.status !== 'pending') {
+                alert(`This challenge was already claimed by ${challenge.claimed_by || 'someone'}!`);
+                return;
+            }
+            
+            // Mark as accepted
+            await db.sentChallenge.update(challenge.id!, {
+                status: 'accepted',
+                claimed_by: data.claimer
+            });
+
+            // Generate Auth Key:  challengeUUID | CONFIRMED
+            const authPayload = {
+                type: 'theo-auth-v1',
+                cid: data.cid,
+                valid: true
+            };
+            generatedAuthKey = btoa(JSON.stringify(authPayload));
+
         } catch (e) {
-            console.error("Failed to parse QR", e);
+            alert("Invalid Claim Code!");
+            console.error(e);
         }
     }
 
-    function onScanFailure(error: any) {
-        // console.warn(`Code scan error = ${error}`);
+    // STEP 3: Receiver enters Auth Key -> Adds Challenge
+    async function finalizeClaim() {
+        if (!pendingClaimRequest || !authKeyInput) return;
+
+        try {
+            const json = atob(authKeyInput);
+            const data = JSON.parse(json);
+
+             if (data.type !== 'theo-auth-v1' || data.cid !== pendingClaimRequest.id || !data.valid) {
+                 alert("Invalid Authorization Key!");
+                 return;
+             }
+
+             // SUCCESS!
+               await db.challengue.add({
+                uuid: pendingClaimRequest.id,
+                player_id: currentUser!.id!,
+                title: pendingClaimRequest.item.title,
+                description: pendingClaimRequest.item.description,
+                points: pendingClaimRequest.item.points,
+                reward: pendingClaimRequest.item.points,
+                from_player: pendingClaimRequest.from,
+                message: pendingClaimRequest.message
+            });
+
+            alert("Challenge Accepted Successfully!");
+            closeClaimModal();
+
+        } catch (e) {
+            alert("Invalid Key format");
+        }
     }
 
     async function completeActiveChallenge(challenge: Challengue) {
@@ -191,7 +300,7 @@
                 <h2 class="card-title">Welcome back, {currentUser?.nickname || 'Player'}!</h2>
                 <p>Ready for a new challenge today?</p>
                 <div class="card-actions justify-end gap-2">
-                    <button class="btn btn-secondary btn-sm" onclick={openReceiveModal}>Scan QR</button>
+                        <button class="btn btn-secondary btn-sm" onclick={openVerifyModal}>Verify Claim</button>
                     <button class="btn btn-primary btn-sm" onclick={openSendModal}>Send Challenge</button>
                 </div>
             </div>
@@ -240,7 +349,10 @@
                             <h3 class="font-bold group-hover:text-primary transition-colors">{challenge.title}</h3>
                             <span class="badge badge-sm badge-ghost">{challenge.points} pts</span>
                         </div>
-                        <p class="text-xs text-base-content/80 mt-1 italic">"{challenge.message || challenge.description}"</p>
+                        <p class="text-xs text-base-content/80 mt-1">{challenge.description}</p>
+                        {#if challenge.message}
+                            <p class="text-xs text-base-content/60 mt-1 italic">"{challenge.message}"</p>
+                        {/if}
                         <p class="text-[10px] text-base-content/50 mt-1">From: {challenge.from_player || 'System'}</p>
                     </div>
                     <button 
@@ -261,8 +373,8 @@
         <div class="modal-box">
             <h3 class="font-bold text-lg text-center">Send a Challenge!</h3>
             
-            {#if !generatedQRUrl}
-                <p class="py-4 text-sm text-center text-base-content/70">Pick an item from your inventory to generate a QR code.</p>
+            {#if !generatedShareLink}
+                <p class="py-4 text-sm text-center text-base-content/70">Pick an item from your inventory to generate a Challenge Link.</p>
                 <div class="form-control w-full gap-4">
                     <!-- Select Item -->
                     <div>
@@ -300,22 +412,44 @@
                         <button class="btn btn-ghost" onclick={closeSendModal}>Cancel</button>
                         <button 
                             class="btn btn-primary"
-                            onclick={generateChallengeQR}
-                            disabled={!selectedItemId}
-                        >
-                            Generate QR Code
+                            onclick={generateChallengeLink}
+                            disabled={!selectedItemId}>
+                            Create Challenge Link
                         </button>
                     </form>
                 </div>
             {:else}
                 <div class="flex flex-col items-center justify-center py-6 gap-4">
-                    <div class="bg-white p-4 rounded-xl">
-                        <img src={generatedQRUrl} alt="Challenge QR Code" class="w-64 h-64" />
+                    
+                    <div class="w-full">
+                        <p class="text-sm text-center mb-2">Share this link with your friend:</p>
+                        <div class="join w-full">
+                            <input type="text" value={generatedShareLink} readonly class="input input-bordered input-sm join-item w-full text-xs" />
+                            <button class="btn btn-sm btn-primary join-item" onclick={() => {
+                                if (generatedShareLink) {
+                                    navigator.clipboard.writeText(generatedShareLink);
+                                    alert('Link copied!');
+                                }
+                            }}>Copy</button>
+                        </div>
+                         <button class="btn btn-sm btn-outline w-full mt-2" onclick={() => {
+                             if (navigator.share && generatedShareLink) {
+                                 navigator.share({
+                                     title: 'I challenge you!',
+                                     text: `Completing the ${selectedItemId} challenge on Theo Challengers!`,
+                                     url: generatedShareLink
+                                 });
+                             } else {
+                                 alert('Share API not supported, please copy the link manually.');
+                             }
+                         }}>
+                            Share via App 🔗
+                         </button>
                     </div>
-                    <p class="text-sm text-center text-info">
-                        Ask your friend to scan this code via the "Scan QR" button!
-                    </p>
-                    <button class="btn btn-outline btn-block" onclick={() => generatedQRUrl = null}>Create Another</button>
+
+                    <button class="btn btn-ghost btn-xs mt-4" onclick={() => {
+                        generatedShareLink = null;
+                    }}>Create Another</button>
                 </div>
                  <div class="modal-action">
                     <form method="dialog">
@@ -329,18 +463,111 @@
         </form>
     </dialog>
 
-    <!-- RECEIVE Challenge Modal -->
-    <dialog id="receive_challenge_modal" class="modal modal-bottom sm:modal-middle">
-        <div class="modal-box relative">
-             <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick={closeReceiveModal}>✕</button>
-            <h3 class="font-bold text-lg mb-4 text-center">Scan Challenge QR</h3>
-            
-            <div id="reader" class="w-full"></div>
-            
-            <p class="text-xs text-center mt-4 opacity-50">Point camera at friend's screen</p>
+    <!-- RECEIVER: Claim Request Modal -->
+    <dialog id="claim_request_modal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box">
+             <h3 class="font-bold text-lg text-center">Challenge Request</h3>
+             
+             {#if pendingClaimRequest}
+                <div class="py-4">
+                    <p class="text-sm text-center">You are requesting a challenge from <span class="font-bold text-primary">{pendingClaimRequest.from}</span></p>
+                    
+                    <div class="card bg-base-200 p-3 mt-2">
+                         <h4 class="font-bold">{pendingClaimRequest.item.title}</h4>
+                         <p class="text-xs">{pendingClaimRequest.item.description}</p>
+                         <p class="text-xs mt-2 italic">"{pendingClaimRequest.message}"</p>
+                    </div>
+
+                    <div class="divider text-xs">STEP 1</div>
+                    <p class="text-xs text-center mb-2">Send this <span class="font-bold">Claim Code</span> to {pendingClaimRequest.from}:</p>
+                    
+                    <div class="join w-full">
+                         <input type="text" value={generatedClaimCode} readonly class="input input-bordered input-sm join-item w-full text-xs" />
+                         <button class="btn btn-sm btn-primary join-item" onclick={() => {
+                             if (generatedClaimCode) navigator.clipboard.writeText(generatedClaimCode);
+                         }}>Copy</button>
+                    </div>
+                     <button class="btn btn-sm btn-outline w-full mt-2" onclick={() => {
+                             if (navigator.share && generatedClaimCode) {
+                                 navigator.share({
+                                     text: generatedClaimCode
+                                 });
+                             }
+                        }}>Share Code 📤</button>
+
+                    <div class="divider text-xs">STEP 2</div>
+                    <p class="text-xs text-center mb-2">Paste the <span class="font-bold">Auth Key</span> they send back:</p>
+                    <input type="text" bind:value={authKeyInput} placeholder="Paste Auth Key here..." class="input input-bordered input-sm w-full" />
+                    
+                    <button class="btn btn-success btn-block mt-4" disabled={!authKeyInput} onclick={finalizeClaim}>
+                        Accept Challenge
+                    </button>
+                </div>
+             {/if}
         </div>
         <form method="dialog" class="modal-backdrop">
-            <button onclick={closeReceiveModal}>close</button>
+            <button onclick={closeClaimModal}>close</button>
+        </form>
+    </dialog>
+
+     <!-- SENDER: Verify Claim Modal -->
+    <dialog id="verify_claim_modal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box">
+             <form method="dialog">
+                 <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick={closeVerifyModal}>✕</button>
+            </form>
+            <h3 class="font-bold text-lg text-center">Verify Claim</h3>
+            <p class="text-xs text-center mt-1 text-base-content/70">Paste the Claim Code your friend sent you.</p>
+
+            <div class="py-4">
+                {#if !generatedAuthKey}
+                    <div class="form-control w-full mt-4">
+                        <textarea 
+                            class="textarea textarea-bordered h-24" 
+                            placeholder="Paste claim code here..." 
+                            bind:value={pendingVerificationId}
+                        ></textarea>
+                    </div>
+                    <button class="btn btn-primary btn-block mt-4" onclick={verifyClaimCode} disabled={!pendingVerificationId}>
+                        Verify & Generate Key
+                    </button>
+                {:else}
+                    <div class="flex flex-col items-center justify-center py-4 gap-4">
+                        <div class="alert alert-success text-xs shadow-md">
+                            <span>Authorized! Challenge marked as Accepted.</span>
+                        </div>
+                        
+                        <div class="w-full">
+                            <p class="text-sm text-center mb-2">Send this <span class="font-bold">Auth Key</span> back to your friend:</p>
+                            <div class="join w-full">
+                                <input type="text" value={generatedAuthKey} readonly class="input input-bordered input-sm join-item w-full text-xs" />
+                                <button class="btn btn-sm btn-primary join-item" onclick={() => {
+                                    if (generatedAuthKey) {
+                                        navigator.clipboard.writeText(generatedAuthKey);
+                                        alert('Auth Key copied!');
+                                    }
+                                }}>Copy</button>
+                            </div>
+                            <button class="btn btn-sm btn-outline w-full mt-2" onclick={() => {
+                                if (navigator.share && generatedAuthKey) {
+                                    navigator.share({
+                                        text: generatedAuthKey
+                                    });
+                                }
+                            }}>Share Key 📤</button>
+                        </div>
+
+                        <button class="btn btn-ghost btn-xs" onclick={() => {
+                            generatedAuthKey = null;
+                            pendingVerificationId = null;
+                        }}>Verify Another</button>
+                    </div>
+                {/if}
+            </div>
+            
+        </div>
+        <form method="dialog" class="modal-backdrop">
+             <button onclick={closeVerifyModal}>close</button>
         </form>
     </dialog>
 </div>
