@@ -79,7 +79,7 @@
         
         const file = input.files[0];
         try {
-            await importDB(file, { clearTables: true });
+            await importDB(db, file, { clearTables: true });
             alert('Data imported successfully! Reloading...');
             window.location.reload();
         } catch (error) {

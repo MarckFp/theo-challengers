@@ -28,8 +28,9 @@ export class MyDatabaseDexie extends Dexie {
         this.version(4).stores({
             player: '++id, nickname, score', // Index score for leaderboard
             inventory: '++id, player_id',
-            challengue: '++id, player_id, uuid',
-            sentChallenge: '++id, uuid, player_id'
+             challengue: '++id, player_id, uuid', // uuid index for preventing duplicates
+             sentChallenge: '++id, uuid, player_id',
+             leaderboard: '++id, &nickname' // Unique nickname for efficient updates
         })
     }
 }

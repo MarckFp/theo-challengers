@@ -5,6 +5,21 @@
     import type { Inventory } from '$lib/models/inventory';
     import type { Challengue } from '$lib/models/challengue';
     import { onMount } from 'svelte';
+    
+    // Helper to update leaderboard
+    async function updatePeerScore(nickname: string, score: number) {
+        if (!nickname || score === undefined) return;
+        try {
+            const existing = await db.leaderboard.where('nickname').equals(nickname).first();
+            if (existing) {
+                // Only update if score is higher or different? Or always take latest?
+                // For now, always take latest as trusted
+                await db.leaderboard.update(existing.id!, { score, updated_at: new Date() });
+            } else {
+                await db.leaderboard.add({ nickname, score, updated_at: new Date() });
+            }
+        } catch (e) { console.error('Leaderboard update failed', e); }
+    }
 
     let players = $state<Player[]>([]);
     let inventory = $state<Inventory[]>([]);
@@ -139,6 +154,7 @@
             type: 'theo-challenge-req-v1',
             id: uniqueId,
             from: currentUser.nickname,
+            fromScore: currentUser.score, // ADDED: Send my score
             item: {
                 title: item.title,
                 points: item.points,
@@ -172,13 +188,19 @@
             }
 
             // Show Claim Request Modal
+            // If new friend or updated score
+            if (data.fromScore !== undefined) {
+                 await updatePeerScore(data.from, data.fromScore);
+            }
+
             pendingClaimRequest = data;
             
-             // Create Claim Code:  challengeUUID | receiverNickname
+             // Create Claim Code:  challengeUUID | receiverNickname | receiverScore
             const claimPayload = {
                 type: 'theo-claim-v1',
                 cid: data.id,
-                claimer: currentUser.nickname
+                claimer: currentUser.nickname,
+                claimerScore: currentUser.score || 0
             };
             generatedClaimCode = btoa(JSON.stringify(claimPayload));
 
@@ -193,6 +215,11 @@
             const data = JSON.parse(json);
 
             if (data.type !== 'theo-claim-v1') throw new Error("Invalid code");
+
+            // If verification starts, update the claimee score
+            if (data.claimerScore !== undefined) {
+                 await updatePeerScore(data.claimer, data.claimerScore);
+            }
 
             // Check if challenge exists and is pending
             const challenge = await db.sentChallenge.where('uuid').equals(data.cid).first();
@@ -213,11 +240,12 @@
                 claimed_by: data.claimer
             });
 
-            // Generate Auth Key:  challengeUUID | CONFIRMED
+            // Generate Auth Key:  challengeUUID | CONFIRMED | senderScore
             const authPayload = {
                 type: 'theo-auth-v1',
                 cid: data.cid,
-                valid: true
+                valid: true,
+                senderScore: currentUser.score || 0
             };
             generatedAuthKey = btoa(JSON.stringify(authPayload));
 
@@ -238,6 +266,10 @@
              if (data.type !== 'theo-auth-v1' || data.cid !== pendingClaimRequest.id || !data.valid) {
                  alert("Invalid Authorization Key!");
                  return;
+             }
+
+             if (data.senderScore !== undefined && pendingClaimRequest.from) {
+                 await updatePeerScore(pendingClaimRequest.from, data.senderScore);
              }
 
              // SUCCESS!
