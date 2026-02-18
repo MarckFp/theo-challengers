@@ -46,6 +46,17 @@
     let pendingVerificationId = $state<string | null>(null);
     let generatedAuthKey = $state<string | null>(null);
 
+    // Copy Feedback State
+    let copiedState = $state<string | null>(null);
+
+    function copyToClipboard(text: string, id: string) {
+        navigator.clipboard.writeText(text);
+        copiedState = id;
+        setTimeout(() => {
+            if (copiedState === id) copiedState = null;
+        }, 2000);
+    }
+
     // Fetch Players
     $effect(() => {
         const subscription = liveQuery(() => db.player.toArray()).subscribe(result => {
@@ -80,20 +91,42 @@
     });
 
 
-    // Check for incoming challenge via URL (Share Link)
+    // Check for incoming challenge/verify/finalize via URL
     $effect(() => {
         const params = new URLSearchParams(window.location.search);
+        
+        // 1. Challenge Link (Receiver opens)
         const challengeData = params.get('challenge');
         if (challengeData && currentUser?.id) {
              try {
                  const json = atob(challengeData);
                  const data = JSON.parse(json);
                  handleIncomingShare(data);
-                 // Clean URL
                  window.history.replaceState({}, document.title, window.location.pathname);
-             } catch (e) {
-                 console.error("Invalid challenge link", e);
-             }
+             } catch (e) { console.error("Invalid challenge link", e); }
+        }
+
+        // 2. Verify Link (Sender opens)
+        const verifyData = params.get('verify_claim');
+        if (verifyData && currentUser?.id) {
+            try {
+                // Auto-fill and open verify modal
+                pendingVerificationId = verifyData; // Store raw base64
+                openVerifyModal();
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } catch (e) { console.error("Invalid verify link", e); }
+        }
+
+        // 3. Finalize Link (Receiver opens)
+        const finalizeData = params.get('finalize');
+        if (finalizeData && currentUser?.id) {
+            try {
+                // Auto-finalize
+                const json = atob(finalizeData);
+                const data = JSON.parse(json);
+                finalizeClaim(data); // Pass data directly
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } catch (e) { console.error("Invalid finalize link", e); }
         }
     });
 
@@ -195,14 +228,15 @@
 
             pendingClaimRequest = data;
             
-             // Create Claim Code:  challengeUUID | receiverNickname | receiverScore
+             // Create Verify Link:  challengeUUID | receiverNickname | receiverScore
             const claimPayload = {
                 type: 'theo-claim-v1',
                 cid: data.id,
                 claimer: currentUser.nickname,
                 claimerScore: currentUser.score || 0
             };
-            generatedClaimCode = btoa(JSON.stringify(claimPayload));
+            const claimB64 = btoa(JSON.stringify(claimPayload));
+            generatedClaimCode = `${window.location.origin}?verify_claim=${claimB64}`;
 
             (document.getElementById('claim_request_modal') as HTMLDialogElement)?.showModal();
         } 
@@ -211,7 +245,13 @@
     // STEP 2: Sender verifies Claim Code -> Generates Auth Key
     async function verifyClaimCode() {
         try {
-            const json = atob(pendingVerificationId || '');
+            let code = pendingVerificationId || '';
+            // Handle if user pasted full URL
+            if (code.includes('verify_claim=')) {
+                 code = code.split('verify_claim=')[1];
+            }
+
+            const json = atob(code);
             const data = JSON.parse(json);
 
             if (data.type !== 'theo-claim-v1') throw new Error("Invalid code");
@@ -240,14 +280,23 @@
                 claimed_by: data.claimer
             });
 
-            // Generate Auth Key:  challengeUUID | CONFIRMED | senderScore
+            // Generate Finalize Link: Includes challenge details so receiver can add it
             const authPayload = {
                 type: 'theo-auth-v1',
                 cid: data.cid,
                 valid: true,
-                senderScore: currentUser.score || 0
+                senderScore: currentUser.score || 0,
+                item: {
+                    title: challenge.title,
+                    description: challenge.description,
+                    points: challenge.points
+                },
+                message: challenge.message,
+                from: currentUser.nickname
             };
-            generatedAuthKey = btoa(JSON.stringify(authPayload));
+
+            const confirmB64 = btoa(JSON.stringify(authPayload));
+            generatedAuthKey = `${window.location.origin}?finalize=${confirmB64}`;
 
         } catch (e) {
             alert("Invalid Claim Code!");
@@ -256,39 +305,69 @@
     }
 
     // STEP 3: Receiver enters Auth Key -> Adds Challenge
-    async function finalizeClaim() {
-        if (!pendingClaimRequest || !authKeyInput) return;
+    async function finalizeClaim(directPayload?: any) {
+        let authData = directPayload;
+
+        // If manual input (fallback)
+        if (!authData && authKeyInput) {
+             try {
+                authData = JSON.parse(atob(authKeyInput));
+            } catch {
+                alert("Invalid Key format");
+                return;
+            }
+        }
+
+        if (!authData) return;
 
         try {
-            const json = atob(authKeyInput);
-            const data = JSON.parse(json);
-
-             if (data.type !== 'theo-auth-v1' || data.cid !== pendingClaimRequest.id || !data.valid) {
+             // Validate
+             if (authData.type !== 'theo-auth-v1' || !authData.valid) {
                  alert("Invalid Authorization Key!");
                  return;
              }
+             
+             // Check if already finalized
+             const existing = await db.challengue.where('uuid').equals(authData.cid).first();
+             if (existing) {
+                 alert(`You already have this achievement!`);
+                 return;
+             }
 
-             if (data.senderScore !== undefined && pendingClaimRequest.from) {
-                 await updatePeerScore(pendingClaimRequest.from, data.senderScore);
+            // Retrieve details (prefer payload, fallback to memory state)
+            const item = authData.item || pendingClaimRequest?.item;
+            const from = authData.from || pendingClaimRequest?.from;
+            const message = authData.message || pendingClaimRequest?.message;
+            const cid = authData.cid || pendingClaimRequest?.id;
+
+            if (!item || !cid) {
+                alert("Missing challenge details. Please re-open the original Challenge Link.");
+                return;
+            }
+
+             if (authData.senderScore !== undefined && from) {
+                 await updatePeerScore(from, authData.senderScore);
              }
 
              // SUCCESS!
                await db.challengue.add({
-                uuid: pendingClaimRequest.id,
+                uuid: cid,
                 player_id: currentUser!.id!,
-                title: pendingClaimRequest.item.title,
-                description: pendingClaimRequest.item.description,
-                points: pendingClaimRequest.item.points,
-                reward: pendingClaimRequest.item.points,
-                from_player: pendingClaimRequest.from,
-                message: pendingClaimRequest.message
+                title: item.title,
+                description: item.description,
+                points: item.points,
+                reward: item.points,
+                from_player: from,
+                message: message
             });
 
-            alert("Challenge Accepted Successfully!");
+            alert("Challenge Validated! Points added.");
             closeClaimModal();
+            window.location.reload(); // Refresh to show changes
 
         } catch (e) {
-            alert("Invalid Key format");
+            console.error(e);
+            alert("Failed to finalize claim");
         }
     }
 
@@ -440,14 +519,14 @@
                 </div>
 
                 <div class="modal-action">
+                    <button 
+                        class="btn btn-primary"
+                        onclick={generateChallengeLink}
+                        disabled={!selectedItemId}>
+                        Create Challenge Link
+                    </button>
                     <form method="dialog">
                         <button class="btn btn-ghost" onclick={closeSendModal}>Cancel</button>
-                        <button 
-                            class="btn btn-primary"
-                            onclick={generateChallengeLink}
-                            disabled={!selectedItemId}>
-                            Create Challenge Link
-                        </button>
                     </form>
                 </div>
             {:else}
@@ -459,10 +538,15 @@
                             <input type="text" value={generatedShareLink} readonly class="input input-bordered input-sm join-item w-full text-xs" />
                             <button class="btn btn-sm btn-primary join-item" onclick={() => {
                                 if (generatedShareLink) {
-                                    navigator.clipboard.writeText(generatedShareLink);
-                                    alert('Link copied!');
+                                    copyToClipboard(generatedShareLink, 'challenge-link');
                                 }
-                            }}>Copy</button>
+                            }}>
+                                {#if copiedState === 'challenge-link'}
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                                {:else}
+                                    Copy
+                                {/if}
+                            </button>
                         </div>
                          <button class="btn btn-sm btn-outline w-full mt-2" onclick={() => {
                              if (navigator.share && generatedShareLink) {
@@ -471,11 +555,15 @@
                                      text: `Completing the ${selectedItemId} challenge on Theo Challengers!`,
                                      url: generatedShareLink
                                  });
-                             } else {
-                                 alert('Share API not supported, please copy the link manually.');
+                             } else if (generatedShareLink) {
+                                 copyToClipboard(generatedShareLink, 'challenge-share-fallback');
                              }
                          }}>
-                            Share via App 🔗
+                            {#if copiedState === 'challenge-share-fallback'}
+                                Link Copied! ✅
+                            {:else}
+                                Share via App 🔗
+                            {/if}
                          </button>
                     </div>
 
@@ -511,29 +599,40 @@
                     </div>
 
                     <div class="divider text-xs">STEP 1</div>
-                    <p class="text-xs text-center mb-2">Send this <span class="font-bold">Claim Code</span> to {pendingClaimRequest.from}:</p>
+                    <p class="text-xs text-center mb-2">Send this <span class="font-bold">Verification Link</span> to {pendingClaimRequest.from}:</p>
                     
-                    <div class="join w-full">
-                         <input type="text" value={generatedClaimCode} readonly class="input input-bordered input-sm join-item w-full text-xs" />
-                         <button class="btn btn-sm btn-primary join-item" onclick={() => {
-                             if (generatedClaimCode) navigator.clipboard.writeText(generatedClaimCode);
-                         }}>Copy</button>
-                    </div>
-                     <button class="btn btn-sm btn-outline w-full mt-2" onclick={() => {
-                             if (navigator.share && generatedClaimCode) {
-                                 navigator.share({
-                                     text: generatedClaimCode
-                                 });
-                             }
-                        }}>Share Code 📤</button>
+                    <button class="btn btn-primary w-full" onclick={() => {
+                         if (navigator.share && generatedClaimCode) {
+                             navigator.share({
+                                 title: 'Verify Theo Challenge',
+                                 text: `Confirm I completed the challenge!`,
+                                 url: generatedClaimCode
+                             });
+                         } else if (generatedClaimCode) {
+                             copyToClipboard(generatedClaimCode, 'verification-link');
+                         }
+                    }}>
+                        {#if copiedState === 'verification-link'}
+                            Link Copied! ✅
+                        {:else}
+                            Share Verification Link 🔗
+                        {/if}
+                    </button>
 
                     <div class="divider text-xs">STEP 2</div>
-                    <p class="text-xs text-center mb-2">Paste the <span class="font-bold">Auth Key</span> they send back:</p>
-                    <input type="text" bind:value={authKeyInput} placeholder="Paste Auth Key here..." class="input input-bordered input-sm w-full" />
+                    <p class="text-xs text-center mb-2 font-semibold">Wait for your friend to send back a Confirmation Link!</p>
+                    <p class="text-[10px] text-center text-base-content/50">When you click their link, the challenge will be added automatically.</p>
                     
-                    <button class="btn btn-success btn-block mt-4" disabled={!authKeyInput} onclick={finalizeClaim}>
-                        Accept Challenge
-                    </button>
+                    <details class="collapse collapse-arrow bg-base-200 mt-4">
+                        <summary class="collapse-title text-xs font-medium">Manual Entry (Fallback)</summary>
+                        <div class="collapse-content">
+                            <p class="text-[10px] mb-2">If links don't work, paste the Auth Key here:</p>
+                            <input type="text" bind:value={authKeyInput} placeholder="Paste Auth Key..." class="input input-bordered input-sm w-full" />
+                            <button class="btn btn-success btn-xs btn-block mt-2" disabled={!authKeyInput} onclick={() => finalizeClaim()}>
+                                Validate Manually
+                            </button>
+                        </div>
+                    </details>
                 </div>
              {/if}
         </div>
@@ -554,45 +653,53 @@
             <div class="py-4">
                 {#if !generatedAuthKey}
                     <div class="form-control w-full mt-4">
+                        <p class="text-xs text-center mb-2">Wait for your friend to send a Verification Link, or paste code here:</p>
                         <textarea 
-                            class="textarea textarea-bordered h-24" 
-                            placeholder="Paste claim code here..." 
+                            class="textarea textarea-bordered h-24 text-xs" 
+                            placeholder="Or paste claim code/link..." 
                             bind:value={pendingVerificationId}
                         ></textarea>
                     </div>
+                    <!-- If pendingVerificationId is a URL, strip it to base64 before verifyClaimCode? No, verifyClaimCode assumes base64. 
+                         Let's handle parsing inside verifyClaimCode if needed, or assume the user gets raw links.
+                         The $effect handles URL clicks. For manual copy paste of URL, we might need a parser.
+                         For now assume manual pastes are raw codes or that verifyClaimCode is updated to parse URLs.
+                    -->
                     <button class="btn btn-primary btn-block mt-4" onclick={verifyClaimCode} disabled={!pendingVerificationId}>
-                        Verify & Generate Key
+                        Confirm & Generate Link
                     </button>
                 {:else}
                     <div class="flex flex-col items-center justify-center py-4 gap-4">
-                        <div class="alert alert-success text-xs shadow-md">
-                            <span>Authorized! Challenge marked as Accepted.</span>
-                        </div>
-                        
-                        <div class="w-full">
-                            <p class="text-sm text-center mb-2">Send this <span class="font-bold">Auth Key</span> back to your friend:</p>
-                            <div class="join w-full">
-                                <input type="text" value={generatedAuthKey} readonly class="input input-bordered input-sm join-item w-full text-xs" />
-                                <button class="btn btn-sm btn-primary join-item" onclick={() => {
-                                    if (generatedAuthKey) {
-                                        navigator.clipboard.writeText(generatedAuthKey);
-                                        alert('Auth Key copied!');
-                                    }
-                                }}>Copy</button>
-                            </div>
-                            <button class="btn btn-sm btn-outline w-full mt-2" onclick={() => {
-                                if (navigator.share && generatedAuthKey) {
-                                    navigator.share({
-                                        text: generatedAuthKey
-                                    });
-                                }
-                            }}>Share Key 📤</button>
+                         <div class="alert alert-success text-xs shadow-md">
+                            <span>Challenge Accepted!</span>
                         </div>
 
-                        <button class="btn btn-ghost btn-xs" onclick={() => {
+                         <div class="w-full">
+                            <p class="text-sm text-center mb-2">Send this <span class="font-bold">Confirmation Link</span> back:</p>
+                            
+                            <button class="btn btn-primary w-full" onclick={() => {
+                                if (navigator.share && generatedAuthKey) {
+                                    navigator.share({
+                                        title: 'Challenge Confirmed!',
+                                        text: `I confirmed your challenge completion!`,
+                                        url: generatedAuthKey
+                                    });
+                                } else if (generatedAuthKey) {
+                                    copyToClipboard(generatedAuthKey, 'confirm-link');
+                                }
+                            }}>
+                                {#if copiedState === 'confirm-link'}
+                                    Link Copied! ✅
+                                {:else}
+                                    Share Confirmation Link 🔗
+                                {/if}
+                            </button>
+                        </div>
+
+                        <button class="btn btn-ghost btn-xs mt-4" onclick={() => {
                             generatedAuthKey = null;
                             pendingVerificationId = null;
-                        }}>Verify Another</button>
+                        }}>Close</button>
                     </div>
                 {/if}
             </div>
