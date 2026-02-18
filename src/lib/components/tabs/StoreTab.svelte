@@ -6,6 +6,7 @@
     import { useUser } from '$lib/stores/user.svelte';
     import { I18N } from '$lib/i18n-keys';
     import { fade } from 'svelte/transition';
+    import { CHALLENGES_CATALOG } from '$lib/data/challenges';
 
     const userStore = useUser();
     let player = $derived(userStore.value);
@@ -41,9 +42,7 @@
 
     async function refreshShop(playerId: number, dateStr: string) {
         try {
-            const res = await fetch('/challengues.json');
-            const data = await res.json();
-            const all = data.challengues;
+            const all = CHALLENGES_CATALOG;
             const shuffled = [...all].sort(() => 0.5 - Math.random()).slice(0, 4);
             
             // Check owned
@@ -102,9 +101,8 @@
         
         // Force refresh
         try {
-            const res = await fetch('/challengues.json');
-            const data = await res.json();
-            const shuffled = data.challengues.sort(() => 0.5 - Math.random()).slice(0, 4);
+            const all = CHALLENGES_CATALOG;
+            const shuffled = [...all].sort(() => 0.5 - Math.random()).slice(0, 4);
             const newItems = shuffled.map((i: any) => ({ ...i, purchased: false }));
             
             await db.player.update(player.id, { 

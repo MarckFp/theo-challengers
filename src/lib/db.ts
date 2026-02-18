@@ -32,6 +32,9 @@ export class MyDatabaseDexie extends Dexie {
              sentChallenge: '++id, uuid, player_id',
              leaderboard: '++id, &nickname' // Unique nickname for efficient updates
         })
+        this.version(5).stores({
+            leaderboard: '++id, &nickname, score' // Index score for ordering
+        })
     }
 }
 
