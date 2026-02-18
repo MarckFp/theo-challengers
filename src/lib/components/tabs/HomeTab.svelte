@@ -482,6 +482,9 @@
     <!-- SEND Challenge Modal -->
     <dialog id="send_challenge_modal" class="modal modal-bottom sm:modal-middle">
         <div class="modal-box">
+            <form method="dialog">
+                 <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick={closeSendModal}>✕</button>
+            </form>
             <h3 class="font-bold text-lg text-center">
                 {#if generatedShareLink}
                     {$_('home.challenge_sent_title', {default: "Challenge Created!"})}
@@ -526,14 +529,11 @@
 
                 <div class="modal-action">
                     <button 
-                        class="btn btn-primary"
+                        class="btn btn-primary w-full"
                         onclick={generateChallengeLink}
                         disabled={!selectedItemId}>
                         {$_('home.create_link')}
                     </button>
-                    <form method="dialog">
-                        <button class="btn btn-ghost" onclick={closeSendModal}>{$_('store.cancel')}</button>
-                    </form>
                 </div>
             {:else}
                 <div class="flex flex-col items-center justify-center py-6 gap-4">
@@ -578,11 +578,7 @@
                         generatedShareLink = null;
                     }}>{$_('home.create_another_link', {default: "Create Another"})}</button>
                 </div>
-                 <div class="modal-action">
-                    <form method="dialog">
-                        <button class="btn" onclick={closeSendModal}>{$_('profile.close')}</button>
-                    </form>
-                </div>
+                 
             {/if}
         </div>
         <form method="dialog" class="modal-backdrop">
@@ -651,7 +647,7 @@
      <!-- SENDER: Verify Claim Modal -->
     <dialog id="verify_claim_modal" class="modal modal-bottom sm:modal-middle">
         <div class="modal-box">
-             <form method="dialog">
+            <form method="dialog">
                  <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick={closeVerifyModal}>✕</button>
             </form>
             <h3 class="font-bold text-lg text-center">{$_('store.verify_claim_title')}</h3>
@@ -667,14 +663,12 @@
                             bind:value={pendingVerificationId}
                         ></textarea>
                     </div>
-                    <!-- If pendingVerificationId is a URL, strip it to base64 before verifyClaimCode? No, verifyClaimCode assumes base64. 
-                         Let's handle parsing inside verifyClaimCode if needed, or assume the user gets raw links.
-                         The $effect handles URL clicks. For manual copy paste of URL, we might need a parser.
-                         For now assume manual pastes are raw codes or that verifyClaimCode is updated to parse URLs.
-                    -->
-                    <button class="btn btn-primary btn-block mt-4" onclick={verifyClaimCode} disabled={!pendingVerificationId}>
-                        {$_('store.verify_confirm_btn')}
-                    </button>
+
+                    <div class="modal-action">
+                        <button class="btn btn-primary w-full" onclick={verifyClaimCode} disabled={!pendingVerificationId}>
+                            {$_('store.verify_confirm_btn')}
+                        </button>
+                    </div>
                 {:else}
                     <div class="flex flex-col items-center justify-center py-4 gap-4">
                          <div class="alert alert-success text-xs shadow-md">
@@ -702,11 +696,7 @@
                                 {/if}
                             </button>
                         </div>
-
-                        <button class="btn btn-ghost btn-xs mt-4" onclick={() => {
-                            generatedAuthKey = null;
-                            pendingVerificationId = null;
-                        }}>{$_('profile.close')}</button>
+                        
                     </div>
                 {/if}
             </div>
