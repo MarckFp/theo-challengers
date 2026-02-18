@@ -46,7 +46,9 @@
         "missing_details_error": "Faltan detalles del desafío. Por favor vuelve a abrir el enlace original.",
         "validated_success": "¡Desafío Validado! Puntos añadidos.",
         "challenge_request_title": "Solicitud de Desafío",
-        "requesting_from": "Estás solicitando un desafío de <span class=\"font-bold text-primary\">{user}</span>",
+        "requesting_from": "Estás siendo desafiado por <span class=\"font-bold text-primary\">{user}</span>",
+        "accept_challenge": "Aceptar Desafío",
+        "decline_challenge": "Rechazar (-1 🏆)",
         "step_1": "PASO 1",
         "send_verification_link": "Envía este <span class=\"font-bold\">Enlace de Verificación</span> a {user}:",
         "share_verification_link": "Compartir Enlace de Verificación 🔗",
@@ -59,6 +61,11 @@
         "validate_manually": "Validar Manualmente",
         "verify_claim_title": "Verificar Desafío",
         "verify_claim_subtitle": "Pega el Código de Desafío que te envió tu amigo.",
+        "enter_confirmation": "Finalizar",
+        "complete_challenge_title": "Finalizar Desafío",
+        "enter_confirmation_desc": "Pega el enlace o código que te envió tu amigo para confirmar.",
+        "paste_confirmation_code": "Pega el Enlace de Confirmación...",
+        "validate_and_complete": "¡Completar y Ganar Puntos!",
         "wait_friend_verification": "Espera a que tu amigo envíe un Enlace de Verificación, o pega el código aquí:",
         "paste_claim_code": "O pega el código/enlace de desafío...",
         "create_another_link": "Crear Otro",
@@ -113,7 +120,10 @@
         "share_challenge_text": "¡Completa el desafío {item} en Theo Challengers!",
         "share_verify_title": "Verificar Theo Challenge",
         "share_verify_text": "¡Confirma que completé el desafío!",
-        "share_confirmed_title": "¡Desafío Confirmado!"
+        "share_confirmed_title": "¡Desafío Confirmado!",
+        "streak_bonus_applied": "¡Bono de Racha! ¡Puntos x{multiplier}!",
+        "active_challenges": "Desafíos Activos",
+        "no_active_challenges": "¡Espera a que un amigo te envíe uno!"
     },
     "inventory": {
         "title": "Tu Inventario",
@@ -157,5 +167,20 @@
         "loading": "Cargando...",
         "error": "Ocurrió un error",
         "success": "¡Éxito!"
+    },
+    "bonus": {
+        "title": "¡Bono Diario!",
+        "message": "¡Aquí tienes una moneda por volver hoy!",
+        "collect": "Recoger",
+        "streak_active": "¡Racha: {streak}!",
+        "extra_coins": "¡Moneda(s) Extra!"
+    },
+    "levels": {
+        "novice": "Retador Novato",
+        "risk_taker": "Temerario",
+        "daredevil": "Audaz",
+        "legend": "Leyenda",
+        "next_level": "Siguiente Nivel",
+        "max_level": "Nivel Máximo"
     }
 }

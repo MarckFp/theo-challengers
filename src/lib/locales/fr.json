@@ -33,9 +33,11 @@
         "need": "Besoin de {cost} 🪙",
         "buy": "Acheter",
         "cancel": "Annuler",
-        "confirm_title": "Confirmer l'achat",        "refresh_button": "Actualiser (3 🪙)",
+        "confirm_title": "Confirmer l'achat",
+        "refresh_button": "Actualiser (3 🪙)",
         "refresh_store_confirm": "Actualiser la boutique pour 3 pièces ?",
-        "refresh_not_enough": "Pas assez de pièces !",        "accept_own_error": "Vous ne pouvez pas accepter votre propre défi !",
+        "refresh_not_enough": "Pas assez de pièces !",
+        "accept_own_error": "Vous ne pouvez pas accepter votre propre défi !",
         "already_accepted_error": "Vous avez déjà accepté ce défi !",
         "challenge_not_found_error": "Défi introuvable ! Peut-être l'avez-vous supprimé ?",
         "already_claimed_error": "Ce défi a déjà été réclamé par {user} !",
@@ -44,7 +46,9 @@
         "missing_details_error": "Détails du défi manquants. Veuillez rouvrir le lien de défi original.",
         "validated_success": "Défi validé ! Points ajoutés.",
         "challenge_request_title": "Demande de défi",
-        "requesting_from": "Vous demandez un défi de <span class=\"font-bold text-primary\">{user}</span>",
+        "requesting_from": "Vous êtes défié par <span class=\"font-bold text-primary\">{user}</span>",
+        "accept_challenge": "Accepter le Défi",
+        "decline_challenge": "Refuser (-1 🏆)",
         "step_1": "ÉTAPE 1",
         "send_verification_link": "Envoyez ce <span class=\"font-bold\">lien de vérification</span> à {user} :",
         "share_verification_link": "Partager le lien de vérification 🔗",
@@ -57,6 +61,11 @@
         "validate_manually": "Valider manuellement",
         "verify_claim_title": "Vérifier la réclamation",
         "verify_claim_subtitle": "Collez le code de réclamation que votre ami vous a envoyé.",
+        "enter_confirmation": "Finaliser",
+        "complete_challenge_title": "Finaliser le Défi",
+        "enter_confirmation_desc": "Collez le lien ou le code envoyé par votre ami pour confirmer.",
+        "paste_confirmation_code": "Collez le Lien de Confirmation...",
+        "validate_and_complete": "Terminer & Gagner des Points !",
         "wait_friend_verification": "Attendez que votre ami envoie un lien de vérification, ou collez le code ici :",
         "paste_claim_code": "Ou collez le code/lien de réclamation...",
         "create_another_link": "Créer un autre",
@@ -111,7 +120,10 @@
         "share_challenge_text": "Compléter le défi {item} sur Theo Challengers !",
         "share_verify_title": "Vérifier Theo Challenge",
         "share_verify_text": "Confirmez que j'ai terminé le défi !",
-        "share_confirmed_title": "Défi confirmé !"
+        "share_confirmed_title": "Défi Confirmé !",
+        "streak_bonus_applied": "Bonus de Série ! Points x{multiplier} !",
+        "active_challenges": "Défis Actifs",
+        "no_active_challenges": "Attendez qu'un ami vous en envoie un !"
     },
     "inventory": {
         "title": "Votre inventaire",
@@ -155,5 +167,20 @@
         "loading": "Chargement...",
         "error": "Une erreur est survenue",
         "success": "Succès !"
+    },
+    "bonus": {
+        "title": "Bonus Quotidien !",
+        "message": "Voici une pièce pour votre retour !",
+        "collect": "Récupérer",
+        "streak_active": "Série : {streak} !",
+        "extra_coins": "Pièce(s) Extra !"
+    },
+    "levels": {
+        "novice": "Novice",
+        "risk_taker": "Trompe-la-mort",
+        "daredevil": "Audacieux",
+        "legend": "Légende",
+        "next_level": "Niveau Suivant",
+        "max_level": "Niveau Max"
     }
 }

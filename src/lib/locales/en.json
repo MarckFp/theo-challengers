@@ -46,7 +46,9 @@
         "missing_details_error": "Missing challenge details. Please re-open the original Challenge Link.",
         "validated_success": "Challenge Validated! Points added.",
         "challenge_request_title": "Challenge Request",
-        "requesting_from": "You are requesting a challenge from <span class=\"font-bold text-primary\">{user}</span>",
+        "requesting_from": "You are being challenged by <span class=\"font-bold text-primary\">{user}</span>",
+        "accept_challenge": "Accept Challenge",
+        "decline_challenge": "Decline (-1 🏆)",
         "step_1": "STEP 1",
         "send_verification_link": "Send this <span class=\"font-bold\">Verification Link</span> to {user}:",
         "share_verification_link": "Share Verification Link 🔗",
@@ -59,6 +61,11 @@
         "validate_manually": "Validate Manually",
         "verify_claim_title": "Verify Claim",
         "verify_claim_subtitle": "Paste the Claim Code your friend sent you.",
+        "enter_confirmation": "Finalize",
+        "complete_challenge_title": "Finalize Challenge",
+        "enter_confirmation_desc": "Paste the link or code sent by your friend confirm completion.",
+        "paste_confirmation_code": "Paste Confirmation Link/Code...",
+        "validate_and_complete": "Complete & Get Points!",
         "wait_friend_verification": "Wait for your friend to send a Verification Link, or paste code here:",
         "paste_claim_code": "Or paste claim code/link...",
         "create_another_link": "Create Another",
@@ -113,7 +120,10 @@
         "share_challenge_text": "Completing the {item} challenge on Theo Challengers!",
         "share_verify_title": "Verify Theo Challenge",
         "share_verify_text": "Confirm I completed the challenge!",
-        "share_confirmed_title": "Challenge Confirmed!"
+        "share_confirmed_title": "Challenge Confirmed!",
+        "streak_bonus_applied": "Streak Bonus! Points x{multiplier}!",
+        "active_challenges": "Active Challenges",
+        "no_active_challenges": "Wait for a friend to send you one!"
     },
     "inventory": {
         "title": "Your Inventory",
@@ -157,5 +167,20 @@
         "loading": "Loading...",
         "error": "An error occurred",
         "success": "Success!"
+    },
+    "bonus": {
+        "title": "Daily Bonus!",
+        "message": "Here is a coin for coming back today!",
+        "collect": "Collect",
+        "streak_active": "Streak: {streak}!",
+        "extra_coins": "Extra Coin(s)!"
+    },
+    "levels": {
+        "novice": "Novice Challenger",
+        "risk_taker": "Risk Taker",
+        "daredevil": "Daredevil",
+        "legend": "Legend",
+        "next_level": "Next Level",
+        "max_level": "Max Level"
     }
 }

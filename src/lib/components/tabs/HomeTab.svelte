@@ -206,7 +206,7 @@
         }
     }
     
-    // STEP 1: Receiver opens link -> Sees "Request Claim"
+    // STEP 1: Receiver opens link -> Sees "Request Claim" -> Now "Accept/Decline"
     async function handleIncomingShare(data: any) {
         if (data.type === 'theo-challenge-req-v1' && currentUser?.id) {
             if (data.from === currentUser.nickname) {
@@ -228,19 +228,77 @@
             }
 
             pendingClaimRequest = data;
+            // No verification link generation yet. Wait for Accept.
             
-             // Create Verify Link:  challengeUUID | receiverNickname | receiverScore
-            const claimPayload = {
-                type: 'theo-claim-v1',
-                cid: data.id,
-                claimer: currentUser.nickname,
-                claimerScore: currentUser.score || 0
-            };
-            const claimB64 = btoa(JSON.stringify(claimPayload));
-            generatedClaimCode = `${window.location.origin}?verify_claim=${claimB64}`;
-
             (document.getElementById('claim_request_modal') as HTMLDialogElement)?.showModal();
         } 
+    }
+
+    async function acceptChallenge() {
+        if (!pendingClaimRequest || !currentUser?.id) return;
+        
+        try {
+            // Add as active challenge locally
+             await db.challengue.add({
+                uuid: pendingClaimRequest.id,
+                player_id: currentUser.id,
+                title: pendingClaimRequest.item.title,
+                description: pendingClaimRequest.item.description,
+                points: pendingClaimRequest.item.points,
+                reward: pendingClaimRequest.item.points, // Assuming reward = points for p2p
+                from_player: pendingClaimRequest.from,
+                message: pendingClaimRequest.message,
+                // created_at? no field in model but useful.
+                // It is NOT completed yet.
+            });
+            
+            closeClaimModal();
+            window.location.reload();
+
+        } catch (e) {
+            console.error('Failed to accept challenge', e);
+        }
+    }
+
+    async function declineChallenge() {
+        if (!currentUser?.id) return;
+        
+        try {
+            // Penalty
+            const newScore = Math.max(0, (currentUser.score || 0) - 1);
+            await db.player.update(currentUser.id, {
+                score: newScore
+            });
+            
+            closeClaimModal();
+        } catch (e) {
+            console.error('Failed to decline', e);
+        }
+    }
+
+    async function generateVerificationLinkForActive(challenge: Challengue) {
+         if (!currentUser) return;
+         
+         const claimPayload = {
+            type: 'theo-claim-v1',
+            cid: challenge.uuid,
+            claimer: currentUser.nickname,
+            claimerScore: currentUser.score || 0
+        };
+        const claimB64 = btoa(JSON.stringify(claimPayload));
+        const link = `${window.location.origin}?verify_claim=${claimB64}`;
+        
+        // Use share API directly or fallback copy
+        if (navigator.share) {
+             navigator.share({
+                 title: $_('home.share_verify_title'),
+                 text: $_('home.share_verify_text'),
+                 url: link
+             });
+        } else {
+             copyToClipboard(link, 'verify-link-' + challenge.id);
+             alert("Verification Link Copied!");
+        }
     }
 
     // STEP 2: Sender verifies Claim Code -> Generates Auth Key
@@ -312,7 +370,12 @@
         // If manual input (fallback)
         if (!authData && authKeyInput) {
              try {
-                authData = JSON.parse(atob(authKeyInput));
+                 // Clean up the input in case they pasted the whole URL
+                 let code = authKeyInput.trim();
+                 if (code.includes('finalize=')) {
+                     code = code.split('finalize=')[1];
+                 }
+                authData = JSON.parse(atob(code));
             } catch {
                 alert("Invalid Key format");
                 return;
@@ -328,43 +391,51 @@
                  return;
              }
              
-             // Check if already finalized
+             // In ACTIVE challenges flow, the challenge is already in DB but not marked complete.
+             // We need to find the challenge by UUID.
              const existing = await db.challengue.where('uuid').equals(authData.cid).first();
-             if (existing) {
+             
+             if (!existing) {
+                 // If not found, it might be the old flow (adding from scratch). 
+                 // But in new flow, we accepted it first.
+                 // Let's support both just in case, or enforce "Active" state.
+                 // For now, let's assume it IS in active list because we accepted it.
+                 alert($_('store.challenge_not_found_error'));
+                 return;
+             }
+
+             if (existing.completed_at) {
                  alert($_('store.already_achievement_error'));
                  return;
              }
 
-            // Retrieve details (prefer payload, fallback to memory state)
-            const item = authData.item || pendingClaimRequest?.item;
-            const from = authData.from || pendingClaimRequest?.from;
-            const message = authData.message || pendingClaimRequest?.message;
-            const cid = authData.cid || pendingClaimRequest?.id;
-
-            if (!item || !cid) {
-                alert($_('store.missing_details_error'));
-                return;
-            }
-
-             if (authData.senderScore !== undefined && from) {
-                 await updatePeerScore(from, authData.senderScore);
+             if (authData.senderScore !== undefined && authData.from) {
+                 await updatePeerScore(authData.from, authData.senderScore);
              }
 
-             // SUCCESS!
-               await db.challengue.add({
-                uuid: cid,
-                player_id: currentUser!.id!,
-                title: item.title,
-                description: item.description,
-                points: item.points,
-                reward: item.points,
-                from_player: from,
-                message: message
-            });
+             // SUCCESS! Mark as complete
+             // Streak Logic
+             const currentStreak = currentUser!.streak || 0;
+             const isStreakBonus = currentStreak >= 3;
+             const multiplier = isStreakBonus ? 2 : 1;
+             
+             await db.challengue.update(existing.id!, {
+                completed_at: new Date()
+             });
+
+             await db.player.update(currentUser!.id!, {
+                 score: (currentUser!.score || 0) + (existing.points * multiplier),
+                 coins: (currentUser!.coins || 0) + existing.reward,
+                 streak: currentStreak + 1
+             });
 
             alert($_('store.validated_success'));
+            if (isStreakBonus && multiplier > 1) {
+                 alert($_('home.streak_bonus_applied', { values: { multiplier } }));
+             }
+
             closeClaimModal();
-            window.location.reload(); // Refresh to show changes
+            window.location.reload(); 
 
         } catch (e) {
             console.error(e);
@@ -378,13 +449,30 @@
          if (!confirm(`Did you complete "${challenge.title}"?`)) return;
 
          await db.transaction('rw', db.player, db.challengue, async () => {
+             // Streak Logic
+             const currentStreak = currentUser.streak || 0;
+             const isStreakBonus = currentStreak >= 3;
+             const multiplier = isStreakBonus ? 2 : 1;
+             
+             // Check if we should reset streak?
+             // Since this is success, we strictly increment.
+             // Reset logic would ideally be: if "rejected" or "failed" (not impl here yet).
+             
+             const pointsEarned = challenge.points * multiplier;
+
              await db.challengue.update(challenge.id!, {
                  completed_at: new Date()
              });
+             
              await db.player.update(currentUser.id!, {
-                 score: (currentUser.score || 0) + challenge.points,
-                 coins: (currentUser.coins || 0) + challenge.reward
+                 score: (currentUser.score || 0) + pointsEarned,
+                 coins: (currentUser.coins || 0) + challenge.reward,
+                 streak: currentStreak + 1
              });
+             
+             if (isStreakBonus && multiplier > 1) {
+                 alert($_('home.streak_bonus_applied', { values: { multiplier } }));
+             }
          });
     }
 </script>
@@ -412,7 +500,10 @@
                 <h2 class="card-title">{$_('home.welcome', { values: { user: currentUser?.nickname || 'Player' } })}</h2>
                 <p>{$_('home.ready_msg')}</p>
                 <div class="card-actions justify-end gap-2">
-                        <button class="btn btn-secondary btn-sm" onclick={openVerifyModal}>{$_('home.verify_claim')}</button>
+                     <!-- Button to enter confirmation link manually if user doesn't click link -->
+                    <button class="btn btn-accent btn-sm" onclick={() => (document.getElementById('finalize_claim_modal') as HTMLDialogElement)?.showModal()}>
+                        {$_('store.enter_confirmation')}
+                    </button>
                     <button class="btn btn-primary btn-sm" onclick={openSendModal}>{$_('home.send_challenge')}</button>
                 </div>
             </div>
@@ -466,13 +557,18 @@
                         {/if}
                         <p class="text-[10px] text-base-content/50 mt-1">From: {challenge.from_player || 'System'}</p>
                     </div>
-                    <button 
-                        class="btn btn-sm btn-ghost btn-circle text-success hover:bg-success/10" 
-                        onclick={() => completeActiveChallenge(challenge)}
-                        title="Mark Complete"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                    </button>
+                    <div class="flex-none flex flex-col gap-2">
+                        <!-- Send Proof Button -->
+                         <button 
+                            class="btn btn-sm btn-info btn-circle text-white shadow-sm" 
+                            onclick={(e) => { e.stopPropagation(); generateVerificationLinkForActive(challenge); }}
+                            title="Share for Verification"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </div>
             {/each}
@@ -586,7 +682,7 @@
         </form>
     </dialog>
 
-    <!-- RECEIVER: Claim Request Modal -->
+    <!-- RECEIVER: Claim Request Modal (Accept/Decline) -->
     <dialog id="claim_request_modal" class="modal modal-bottom sm:modal-middle">
         <div class="modal-box">
              <h3 class="font-bold text-lg text-center">{$_('store.challenge_request_title')}</h3>
@@ -595,47 +691,26 @@
                 <div class="py-4">
                     <p class="text-sm text-center">{@html $_('store.requesting_from', { values: { user: pendingClaimRequest.from } })}</p>
                     
-                    <div class="card bg-base-200 p-3 mt-2">
-                         <h4 class="font-bold">{pendingClaimRequest.item.title}</h4>
-                         <p class="text-xs">{pendingClaimRequest.item.description}</p>
-                         <p class="text-xs mt-2 italic">"{pendingClaimRequest.message}"</p>
+                    <div class="card bg-base-200 p-3 mt-4 mb-6 shadow-inner">
+                         <h4 class="font-bold text-center text-lg">{pendingClaimRequest.item.title}</h4>
+                         <p class="text-sm text-center opacity-80">{pendingClaimRequest.item.description}</p>
+                         {#if pendingClaimRequest.message}
+                            <div class="divider my-2"></div>
+                            <p class="text-sm italic text-center">"{pendingClaimRequest.message}"</p>
+                         {/if}
+                         <div class="flex justify-center mt-2">
+                             <div class="badge badge-primary font-bold">{pendingClaimRequest.item.points} pts</div>
+                         </div>
                     </div>
 
-                    <div class="divider text-xs">{$_('store.step_1')}</div>
-                    <p class="text-xs text-center mb-2">{@html $_('store.send_verification_link', { values: { user: pendingClaimRequest.from } })}</p>
-                    
-                    <button class="btn btn-primary w-full" onclick={() => {
-                         if (navigator.share && generatedClaimCode) {
-                             navigator.share({
-                                 title: $_('home.share_verify_title'),
-                                 text: $_('home.share_verify_text'),
-                                 url: generatedClaimCode
-                             });
-                         } else if (generatedClaimCode) {
-                             copyToClipboard(generatedClaimCode, 'verification-link');
-                         }
-                    }}>
-                        {#if copiedState === 'verification-link'}
-                            Link Copied! ✅
-                        {:else}
-                            {$_('store.share_verification_link')}
-                        {/if}
-                    </button>
-
-                    <div class="divider text-xs">{$_('store.step_2')}</div>
-                    <p class="text-xs text-center mb-2 font-semibold">{$_('store.wait_confirmation')}</p>
-                    <p class="text-[10px] text-center text-base-content/50">{$_('store.wait_confirmation_desc')}</p>
-                    
-                    <details class="collapse collapse-arrow bg-base-200 mt-4">
-                        <summary class="collapse-title text-xs font-medium">{$_('store.manual_entry')}</summary>
-                        <div class="collapse-content">
-                            <p class="text-[10px] mb-2">{$_('store.manual_entry_desc')}</p>
-                            <input type="text" bind:value={authKeyInput} placeholder={$_('store.paste_auth_key')} class="input input-bordered input-sm w-full" />
-                            <button class="btn btn-success btn-xs btn-block mt-2" disabled={!authKeyInput} onclick={() => finalizeClaim()}>
-                                {$_('store.validate_manually')}
-                            </button>
-                        </div>
-                    </details>
+                    <div class="grid grid-cols-2 gap-4">
+                        <button class="btn btn-error btn-outline" onclick={declineChallenge}>
+                            {$_('store.decline_challenge')}
+                        </button>
+                        <button class="btn btn-success" onclick={acceptChallenge}>
+                            {$_('store.accept_challenge')}
+                        </button>
+                    </div>
                 </div>
              {/if}
         </div>

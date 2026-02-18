@@ -5,8 +5,26 @@
     import { onMount } from 'svelte';
     import { _, locale } from 'svelte-i18n';
 
-    let players = $state<{id?: number, nickname: string}[]>([]); 
+    let players = $state<any[]>([]); 
     
+    // Level Logic
+    let player = $derived(players.length > 0 ? players[0] : null);
+    
+    let levelInfo = $derived.by(() => {
+        const score = player?.score || 0;
+        if (score < 100) return { titleKey: 'novice', min: 0, max: 100, level: 1 };
+        if (score < 500) return { titleKey: 'risk_taker', min: 100, max: 500, level: 2 };
+        if (score < 1000) return { titleKey: 'daredevil', min: 500, max: 1000, level: 3 };
+        return { titleKey: 'legend', min: 1000, max: 10000, level: 4 };
+    });
+
+    let currentProgress = $derived.by(() => {
+        const score = player?.score || 0;
+        if (levelInfo.level >= 4) return 100;
+        // Example: score 150. min 100, max 500. progress = (150-100) / (500-100) = 50 / 400 = 12.5%
+        return Math.min(100, Math.max(0, ((score - levelInfo.min) / (levelInfo.max - levelInfo.min)) * 100));
+    });
+
     // Nickname State
     let isEditingNickname = $state(false);
     let newNickname = $state('');
@@ -130,7 +148,8 @@
 <div class="space-y-6 pb-20">
     <!-- Header / Nickname Section -->
     <div class="flex flex-col items-center pt-8 pb-4">
-        <div class="avatar placeholder mb-4">
+        <div class="avatar placeholder mb-4 indicator">
+            <span class="indicator-item badge badge-secondary font-bold shadow-md">Lvl {levelInfo.level}</span> 
             <div class="bg-primary text-primary-content rounded-full w-24 shadow-xl ring ring-primary ring-offset-base-100 ring-offset-2 flex items-center justify-center">
                  <span class="text-4xl font-bold">{(players[0]?.nickname || 'P').charAt(0).toUpperCase()}</span>
             </div>
@@ -163,6 +182,22 @@
                 </svg>
             </div>
         {/if}
+
+        <div class="flex flex-col items-center mt-2 w-full max-w-xs px-8">
+            <span class="text-sm font-bold uppercase tracking-widest text-secondary badge badge-ghost mb-2">
+                {$_(`levels.${levelInfo.titleKey}`)}
+            </span>
+            <div class="w-full flex items-center gap-2 text-xs font-mono opacity-60 mb-1">
+                 <span>{player?.score || 0} pts</span>
+                 <span class="flex-1"></span>
+                 {#if levelInfo.level < 4}
+                    <span>{levelInfo.max} pts</span>
+                 {:else}
+                    <span>MAX</span>
+                 {/if}
+            </div>
+            <progress class="progress progress-primary w-full h-3 shadow-inner bg-base-300" value={currentProgress} max="100"></progress>
+        </div>
     </div>
     
     <div class="menu bg-base-100 w-full rounded-box border border-base-200 shadow-sm p-4 gap-2">
