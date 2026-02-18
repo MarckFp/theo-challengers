@@ -1,6 +1,4 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-mod discovery;
-
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -17,12 +15,7 @@ pub fn run() {
 
     builder
         .plugin(tauri_plugin_opener::init())
-        .manage(discovery::DiscoveryState::new())
-        .invoke_handler(tauri::generate_handler![
-            greet,
-            discovery::start_discovery,
-            discovery::stop_discovery
-        ])
+        .invoke_handler(tauri::generate_handler![greet])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

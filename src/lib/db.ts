@@ -18,10 +18,10 @@ export class MyDatabaseDexie extends Dexie {
             inventory: '++id, player_id',
             challengue: '++id, player_id'
         })
-        this.version(4).stores({
-            player: '++id, nickname, score', 
+        this.version(3).stores({
+            player: '++id, nickname, score', // Index score for leaderboard
             inventory: '++id, player_id',
-            challengue: '++id, player_id, completed_at' // Index completed_at to easily filter active/history
+            challengue: '++id, player_id'
         })
     }
 }
