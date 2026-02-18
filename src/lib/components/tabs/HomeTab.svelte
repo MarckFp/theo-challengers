@@ -16,6 +16,10 @@
     } from '$lib/services/challenge';
     import { I18N } from '$lib/i18n-keys';
 
+    // Components
+    import QrCode from '$lib/components/QrCode.svelte';
+    import QrScanner from '$lib/components/QrScanner.svelte';
+
     // State
     const userStore = useUser();
     let currentUser = $derived(userStore.value);
@@ -26,7 +30,11 @@
     // Modal State
     let isSendModalOpen = $state(false);
     let isVerificationModalOpen = $state(false); 
-    
+    let isScannerOpen = $state(false);
+    let isShowQrModalOpen = $state(false); // To show general QR code
+    let qrCodeTitle = $state('');
+    let qrCodeValue = $state('');
+
     let selectedItemId = $state<number | null>(null);
     let customMessage = $state('');
     let generatedShareLink = $state<string | null>(null);
@@ -47,6 +55,54 @@
         setTimeout(() => {
             if (copiedState === id) copiedState = null;
         }, 2000);
+    }
+
+    function showQr(title: string, value: string) {
+        qrCodeTitle = title;
+        qrCodeValue = value;
+        isShowQrModalOpen = true;
+        (document.getElementById('show_qr_modal') as HTMLDialogElement)?.showModal();
+    }
+
+    function handleScan(decodedText: string) {
+        isScannerOpen = false;
+        (document.getElementById('scanner_modal') as HTMLDialogElement)?.close();
+
+        // Detect type of link
+        try {
+            const url = new URL(decodedText);
+            const params = new URLSearchParams(url.search);
+            
+            if (params.has('challenge')) {
+                // Incoming Challenge
+                const challengeData = params.get('challenge');
+                if (challengeData) {
+                    const json = atob(challengeData);
+                    const data = JSON.parse(json);
+                    handleIncomingShare(data);
+                }
+            } else if (params.has('verify_claim')) {
+                 // Verify Claim (Sender)
+                 const verifyData = params.get('verify_claim');
+                 if (verifyData) {
+                    pendingVerificationId = verifyData; 
+                    openVerifyModal();
+                 }
+            } else if (params.has('finalize')) {
+                 // Finalize (Receiver)
+                 const finalizeData = params.get('finalize');
+                 if (finalizeData) {
+                     const json = atob(finalizeData);
+                     const data = JSON.parse(json);
+                     finalizeClaim(data);
+                 }
+            } else {
+                alert("Unknown QR Code format");
+            }
+        } catch (e) {
+            // Might be a raw code if we supported that, but we use URLs mainly
+             alert("Invalid QR Code: " + e);
+        }
     }
 
     // Fetch Inventory for Current User
@@ -74,7 +130,7 @@
         return () => subscription.unsubscribe();
     });
 
-    // Check for incoming challenge/verify/finalize via URL
+    // Check for incoming challenge/verify/finalize via URL (Page Load)
     $effect(() => {
         const params = new URLSearchParams(window.location.search);
         
@@ -211,22 +267,27 @@
          
          const link = await generateVerificationLink(challenge, currentUser);
          
-        if (navigator.share) {
-             navigator.share({
-                 title: $_(I18N.home.share_verify_title),
-                 text: $_(I18N.home.share_verify_text),
-                 url: link
-             });
-        } else {
-             copyToClipboard(link, 'verify-link-' + challenge.id);
-             alert("Verification Link Copied!");
-        }
+         // Ask user if they want to copy link or show QR code
+         // For simplification, we'll auto-copy but provide UI elsewhere or just show alert with choices?
+         // Let's change the flow: Show a mini-modal with choices "Copy Link" or "Show QR"?
+         // Or just show QR immediately in a modal with the link below it. That's best for "proximity".
+         
+         showQr($_(I18N.home.share_verify_title), link);
     }
 
     async function verifyClaimCode() {
         if (!currentUser || !pendingVerificationId) return;
 
-        const result = await serviceVerifyClaim(currentUser, pendingVerificationId);
+        // If it's a full URL, we might need to extract the verify_claim param or just pass it if the service handles it
+        // The service expects the raw ID usually, but let's check input
+        let code = pendingVerificationId;
+        try {
+            const url = new URL(code);
+            const p = url.searchParams.get('verify_claim');
+            if(p) code = p;
+        } catch {}
+
+        const result = await serviceVerifyClaim(currentUser, code);
 
         if (result.success && result.authRawLink) {
             generatedAuthKey = result.authRawLink;
@@ -264,7 +325,18 @@
                 Theo <span class="text-primary">Challengers</span>
             </a>
         </div>
-        <div class="flex-none">
+        <div class="flex-none gap-2">
+            <!-- Scan QR Button (Top Right) -->
+            <button class="btn btn-ghost btn-circle" onclick={() => {
+                isScannerOpen = true;
+                (document.getElementById('scanner_modal') as HTMLDialogElement)?.showModal();
+            }}>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.5h.75v.75h-.75v-.75ZM16.5 6.75h.75v.75h-.75v-.75ZM13.5 13.5h.75v.75h-.75v-.75ZM13.5 19.5h.75v.75h-.75v-.75ZM19.5 13.5h.75v.75h-.75v-.75ZM19.5 19.5h.75v.75h-.75v-.75ZM16.5 16.5h.75v.75h-.75v-.75Z" />
+                </svg>
+            </button>
+
             <div class="avatar placeholder">
                 <div class="bg-primary text-primary-content rounded-full w-10 flex items-center justify-center">
                     <span class="text-lg font-bold">{(currentUser?.nickname || 'P').charAt(0).toUpperCase()}</span>
@@ -409,9 +481,20 @@
                 </div>
             {:else}
                 <div class="flex flex-col items-center justify-center py-6 gap-4">
-                    
                     <div class="w-full">
                         <p class="text-sm text-center mb-2">{$_(I18N.home.share_link)}</p>
+                        
+                        <!-- Show QR code option -->
+                        <div class="flex justify-center mb-4">
+                            <button class="btn btn-outline btn-neutral btn-sm gap-2" onclick={() => showQr('Challenge Link', generatedShareLink!)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.5h.75v.75h-.75v-.75ZM16.5 6.75h.75v.75h-.75v-.75ZM13.5 13.5h.75v.75h-.75v-.75ZM13.5 19.5h.75v.75h-.75v-.75ZM19.5 13.5h.75v.75h-.75v-.75ZM19.5 19.5h.75v.75h-.75v-.75ZM16.5 16.5h.75v.75h-.75v-.75Z" />
+                                </svg>
+                                Show QR
+                            </button>
+                        </div>
+
                         <div class="join w-full">
                             <input type="text" value={generatedShareLink} readonly class="input input-bordered input-sm join-item w-full text-xs" />
                             <button class="btn btn-sm btn-primary join-item" onclick={() => {
@@ -526,6 +609,14 @@
                          <div class="alert alert-success text-xs shadow-md">
                             <span>{$_(I18N.home.challenge_accepted)}</span>
                         </div>
+                        
+                         <!-- Confirmation QR Code -->
+                        <div class="flex justify-center mb-4">
+                             <div class="p-4 bg-white rounded-xl shadow-lg">
+                                <QrCode data={generatedAuthKey} size={200} />
+                             </div>
+                        </div>
+                        <p class="text-xs text-center font-bold">Show this to your friend to finalize!</p>
 
                          <div class="w-full">
                             <p class="text-sm text-center mb-2">{@html $_(I18N.home.send_confirm_link_back)}</p>
@@ -556,6 +647,46 @@
         </div>
         <form method="dialog" class="modal-backdrop">
              <button onclick={closeVerifyModal}>{$_(I18N.common.close)}</button>
+        </form>
+    </dialog>
+
+    <!-- General QR Code Display Modal -->
+    <dialog id="show_qr_modal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box flex flex-col items-center">
+            <h3 class="font-bold text-lg text-center mb-4">{qrCodeTitle}</h3>
+            <div class="p-4 bg-white rounded-xl shadow-lg">
+                {#if isShowQrModalOpen && qrCodeValue}
+                    <QrCode data={qrCodeValue} size={250} />
+                {/if}
+            </div>
+            <p class="py-4 text-center text-xs opacity-70 break-all">{qrCodeValue}</p>
+            <div class="modal-action">
+                <form method="dialog">
+                    <button class="btn" onclick={() => isShowQrModalOpen = false}>Close</button>
+                </form>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button onclick={() => isShowQrModalOpen = false}>close</button>
+        </form>
+    </dialog>
+
+    <!-- QR Scanner Modal -->
+    <dialog id="scanner_modal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg text-center mb-4">Scan QR Code</h3>
+            {#if isScannerOpen}
+                <QrScanner 
+                    onScan={handleScan}
+                    onCancel={() => {
+                        isScannerOpen = false;
+                        (document.getElementById('scanner_modal') as HTMLDialogElement)?.close();
+                    }} 
+                />
+            {/if}
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button onclick={() => isScannerOpen = false}>close</button>
         </form>
     </dialog>
 </div>

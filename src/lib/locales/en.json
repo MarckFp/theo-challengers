@@ -24,6 +24,7 @@
     "store": {
         "title": "Daily Shop",
         "description": "Get items to challenge your friends!",
+        "not_enough_points_error": "Not enough points!",
         "not_enough_coins": "Not enough coins!",
         "inventory_full": "Inventory is full (max 3 items)!",
         "buy_confirm": "Do you want to buy {item} for {cost} coins?",
@@ -144,12 +145,31 @@
         "reset_confirm": "Are you sure? This will delete all your progress!",
         "save": "Save"
     },
-    "leaderboard": {
-        "title": "Leaderboard",
-        "rank": "Rank",
-        "player": "Player",
-        "score": "Score",
-        "updated": "Updated"
+    "badges": {
+        "title": "Badges Store",
+        "intro": "Show off your achievements! Spend your Points (🏆) to unlock these exclusive badges.",
+        "owned": "Owned",
+        "confirm_buy": "Unlock this badge for {cost} points?",
+        "early_adopter": "Early Adopter",
+        "early_adopter_desc": "One of the first to play!",
+        "supporter": "Supporter",
+        "supporter_desc": "Thanks for being awesome.",
+        "rich_list": "Rich List",
+        "rich_list_desc": "You have too many points.",
+        "collector": "Collector",
+        "collector_desc": "Gotta catch 'em all!",
+        "shadow_ninja": "Shadow Ninja",
+        "shadow_ninja_desc": "Quiet but deadly.",
+        "goal_master": "Goal Master",
+        "goal_master_desc": "Nothing can stop you."
+    },
+    "history": {
+        "title": "Challenge History",
+        "empty": "No challenges completed yet.",
+        "challenge": "Task",
+        "from": "From",
+        "pts": "Pts",
+        "date": "Date"
     },
     "common": {
         "loading": "Loading...",

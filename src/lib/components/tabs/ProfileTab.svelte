@@ -2,6 +2,7 @@
     import { db } from '$lib/db';
     import { exportDB, importDB } from 'dexie-export-import';
     import { onMount } from 'svelte';
+    import Journal from '../Journal.svelte';
     import { _, locale } from 'svelte-i18n';
     import { useUser } from '$lib/stores/user.svelte';
     import { I18N } from '$lib/i18n-keys';
@@ -187,6 +188,9 @@
         </div>
     </div>
     
+    <!-- History/Journal -->
+    <Journal />
+
     <div class="menu bg-base-100 w-full rounded-box border border-base-200 shadow-sm p-4 gap-2">
         <!-- Language Selector -->
         <div>

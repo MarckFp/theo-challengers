@@ -7,4 +7,5 @@ export interface Player {
     lastShopUpdate?: string // Date string to track daily shop refresh
     lastDailyBonus?: string // Date string to track daily login bonus
     shopItems?: any[] // Store current daily shop items
+    badges?: string[] // IDs of owned badges
 }

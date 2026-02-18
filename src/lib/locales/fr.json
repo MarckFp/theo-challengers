@@ -24,6 +24,7 @@
     "store": {
         "title": "Boutique Quotidienne",
         "description": "Obtenez des objets pour défier vos amis !",
+        "not_enough_points_error": "Pas assez de points !",
         "not_enough_coins": "Pas assez de pièces !",
         "inventory_full": "L'inventaire est plein (max 3 objets) !",
         "buy_confirm": "Voulez-vous acheter {item} pour {cost} pièces ?",
@@ -144,12 +145,31 @@
         "reset_confirm": "Êtes-vous sûr ? Cela effacera toute votre progression !",
         "save": "Enregistrer"
     },
-    "leaderboard": {
-        "title": "Classement",
-        "rank": "Rang",
-        "player": "Joueur",
-        "score": "Score",
-        "updated": "Mis à jour"
+    "badges": {
+        "title": "Boutique de Badges",
+        "intro": "Montrez vos réalisations ! Dépensez vos Points (🏆) pour débloquer ces badges exclusifs.",
+        "owned": "Acquis",
+        "confirm_buy": "Débloquer ce badge pour {cost} points ?",
+        "early_adopter": "Pionnier",
+        "early_adopter_desc": "Un des premiers à jouer !",
+        "supporter": "Supporter",
+        "supporter_desc": "Merci d'être génial.",
+        "rich_list": "Liste des Riches",
+        "rich_list_desc": "Vous avez trop de points.",
+        "collector": "Collectionneur",
+        "collector_desc": "Attrapez-les tous !",
+        "shadow_ninja": "Ninja de l'Ombre",
+        "shadow_ninja_desc": "Silencieux mais mortel.",
+        "goal_master": "Maître des Objectifs",
+        "goal_master_desc": "Rien ne peut vous arrêter."
+    },
+    "history": {
+        "title": "Historique des Défis",
+        "empty": "Aucun défi terminé pour le moment.",
+        "challenge": "Tâche",
+        "from": "De",
+        "pts": "Pts",
+        "date": "Date"
     },
     "common": {
         "loading": "Chargement...",
