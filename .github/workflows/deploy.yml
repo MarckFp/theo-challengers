@@ -159,7 +159,7 @@ jobs:
       CODE_SIGNING_REQUIRED: NO
       CODE_SIGNING_IDENTITY: ""
       CODE_SIGN_ENTITLEMENTS: ""
-      DEVELOPMENT_TEAM: "0000000000"
+      APPLE_DEVELOPMENT_TEAM: "0000000000"
     steps:
       - uses: actions/checkout@v6
       - name: Setup Project
