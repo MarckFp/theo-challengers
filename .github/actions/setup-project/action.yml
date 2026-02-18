@@ -8,9 +8,6 @@ runs:
   using: 'composite'
   steps:
     - uses: oven-sh/setup-bun@v2
-    - shell: bash
-      run: bun install
-#    - shell: bash
-#      run: bun pm version ${{ inputs.tag-name }} --no-git-tag-version
-    - shell: bash
-      run: bun run tauri icon static/favicon-32x32.png
+    - run: bun install
+    - run: bun pm version ${{ inputs.tag-name }} --no-git-tag-version
+    - run: bun run tauri icon static/favicon-32x32.png
