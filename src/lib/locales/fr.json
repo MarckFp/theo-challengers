@@ -32,7 +32,6 @@
         "full": "Plein",
         "need": "Besoin de {cost} 🪙",
         "buy": "Acheter",
-        "cancel": "Annuler",
         "confirm_title": "Confirmer l'achat",
         "refresh_button": "Actualiser (3 🪙)",
         "refresh_store_confirm": "Actualiser la boutique pour 3 pièces ?",
@@ -61,11 +60,6 @@
         "validate_manually": "Valider manuellement",
         "verify_claim_title": "Vérifier la réclamation",
         "verify_claim_subtitle": "Collez le code de réclamation que votre ami vous a envoyé.",
-        "enter_confirmation": "Finaliser",
-        "complete_challenge_title": "Finaliser le Défi",
-        "enter_confirmation_desc": "Collez le lien ou le code envoyé par votre ami pour confirmer.",
-        "paste_confirmation_code": "Collez le Lien de Confirmation...",
-        "validate_and_complete": "Terminer & Gagner des Points !",
         "wait_friend_verification": "Attendez que votre ami envoie un lien de vérification, ou collez le code ici :",
         "paste_claim_code": "Ou collez le code/lien de réclamation...",
         "create_another_link": "Créer un autre",
@@ -103,7 +97,6 @@
         "confirm_title": "Confirmer l'achèvement",
         "confirm_desc": "Renvoyer ce lien de confirmation :",
         "share_confirm": "Partager le lien de confirmation",
-        "close": "Fermer",
         "challenge_sent_title": "Défi créé !",
         "select_challenge_title": "Sélectionner un défi",
         "select_challenge_subtitle": "Choisissez un objet de votre inventaire pour générer un lien de défi.",
@@ -135,7 +128,6 @@
         "remove_title": "Supprimer l'objet",
         "remove_confirm_title": "Supprimer l'objet ?",
         "remove_confirm_desc": "Êtes-vous sûr de vouloir supprimer cet objet ? Vous perdrez les pièces dépensées pour cet objet.",
-        "cancel": "Annuler",
         "confirm_remove": "Supprimer"
     },
     "profile": {
@@ -144,7 +136,6 @@
         "delete_title": "Supprimer le compte",
         "delete_confirm": "Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible et vous perdrez toute votre progression, vos objets et vos statistiques.",
         "delete_btn": "Oui, tout supprimer",
-        "close": "Fermer",
         "export_data": "Exporter les données",
         "import_data": "Importer les données",
         "change_nickname": "Changer de pseudo",
@@ -153,8 +144,7 @@
         "data_management": "Gestion des données",
         "reset_data": "Réinitialiser les données",
         "reset_confirm": "Êtes-vous sûr ? Cela effacera toute votre progression !",
-        "save": "Enregistrer",
-        "cancel": "Annuler"
+        "save": "Enregistrer"
     },
     "leaderboard": {
         "title": "Classement",
@@ -166,7 +156,10 @@
     "common": {
         "loading": "Chargement...",
         "error": "Une erreur est survenue",
-        "success": "Succès !"
+        "success": "Succès !",
+        "cancel": "Annuler",
+        "close": "Fermer",
+        "confirm": "Confirmer"
     },
     "bonus": {
         "title": "Bonus Quotidien !",
@@ -182,5 +175,22 @@
         "legend": "Légende",
         "next_level": "Niveau Suivant",
         "max_level": "Niveau Max"
+    },
+    "challenges": {
+      "first_comment": { "title": "Premier Commentaire", "desc": "Soyez le premier à donner un commentaire pendant la réunion." },
+      "bible_comment": { "title": "Commentaire Biblique", "desc": "Lisez et commentez un verset biblique pendant la réunion." },
+      "encourage_brother": { "title": "Encourager un Frère", "desc": "Envoyez un message ou une carte d'encouragement à un compagnon." },
+      "more_comments": { "title": "Double Commentaire", "desc": "Donnez au moins deux commentaires pendant la réunion." },
+      "talk_older": { "title": "Échange de Sagesse", "desc": "Ayez une conversation avec un frère ou une sœur âgé(e)." },
+      "preach_different": { "title": "Nouveau Partenaire", "desc": "Prêchez avec quelqu'un avec qui vous n'avez pas travaillé récemment." },
+      "help_cleaning": { "title": "Nettoyage du Royaume", "desc": "Participez au nettoyage de la Salle du Royaume après la réunion." },
+      "hospitality": { "title": "Cœur Ouvert", "desc": "Faites preuve d'hospitalité en invitant quelqu'un pour un repas ou un café." },
+      "hardest_hello": { "title": "Le Salut Difficile", "desc": "Saluez quelqu'un avec qui vous avez du mal à parler habituellement." },
+      "pioneer_date": { "title": "Rendez-vous Pionnier", "desc": "Prenez rendez-vous pour prêcher avec un pionnier." },
+      "encouragement_correspondent": { "title": "Correspondant", "desc": "Écrivez une lettre à quelqu'un qui a besoin d'encouragement." },
+      "meeting_echo": { "title": "Écho de la Réunion", "desc": "Discutez d'un point précis de la réunion avec un ami à la fin." },
+      "bible_researcher": { "title": "Chercheur Biblique", "desc": "Faites des recherches sur un sujet et partagez-les avec quelqu'un." },
+      "right_hand": { "title": "Main Droite", "desc": "Accueillez chaleureusement une nouvelle personne ou un visiteur." },
+      "faith_interview": { "title": "Interview de Foi", "desc": "Demandez à un chrétien mûr comment il a surmonté une épreuve." }
     }
 }

@@ -501,9 +501,6 @@
                 <p>{$_('home.ready_msg')}</p>
                 <div class="card-actions justify-end gap-2">
                      <!-- Button to enter confirmation link manually if user doesn't click link -->
-                    <button class="btn btn-accent btn-sm" onclick={() => (document.getElementById('finalize_claim_modal') as HTMLDialogElement)?.showModal()}>
-                        {$_('store.enter_confirmation')}
-                    </button>
                     <button class="btn btn-primary btn-sm" onclick={openSendModal}>{$_('home.send_challenge')}</button>
                 </div>
             </div>
@@ -548,10 +545,10 @@
                 <div class="card-body p-4 flex-row items-center gap-4">
                     <div class="flex-1">
                         <div class="flex justify-between items-start">
-                            <h3 class="font-bold group-hover:text-primary transition-colors">{challenge.title}</h3>
+                            <h3 class="font-bold group-hover:text-primary transition-colors">{$_(challenge.title)}</h3>
                             <span class="badge badge-sm badge-ghost">{challenge.points} pts</span>
                         </div>
-                        <p class="text-xs text-base-content/80 mt-1">{challenge.description}</p>
+                        <p class="text-xs text-base-content/80 mt-1">{$_(challenge.description)}</p>
                         {#if challenge.message}
                             <p class="text-xs text-base-content/60 mt-1 italic">"{challenge.message}"</p>
                         {/if}
@@ -600,7 +597,7 @@
                         <select class="select select-bordered w-full" bind:value={selectedItemId}>
                             <option disabled selected value={null}>{$_('home.select_challenge_title')}</option>
                             {#each inventory as item}
-                                <option value={item.id}>{item.icon || '📜'} {item.title} ({item.points} pts)</option>
+                                <option value={item.id}>{item.icon || '📜'} {$_(item.title)} ({item.points} pts)</option>
                             {/each}
                         </select>
                         {#if inventory.length === 0}
@@ -655,7 +652,7 @@
                                  const itemTitle = inventory.find(i => i.id === selectedItemId)?.title || selectedItemId;
                                  navigator.share({
                                      title: $_('home.share_challenge_title'),
-                                     text: $_('home.share_challenge_text', { values: { item: itemTitle } }),
+                                     text: $_('home.share_challenge_text', { values: { item: $_(itemTitle) } }),
                                      url: generatedShareLink
                                  });
                              } else if (generatedShareLink) {
@@ -692,8 +689,8 @@
                     <p class="text-sm text-center">{@html $_('store.requesting_from', { values: { user: pendingClaimRequest.from } })}</p>
                     
                     <div class="card bg-base-200 p-3 mt-4 mb-6 shadow-inner">
-                         <h4 class="font-bold text-center text-lg">{pendingClaimRequest.item.title}</h4>
-                         <p class="text-sm text-center opacity-80">{pendingClaimRequest.item.description}</p>
+                         <h4 class="font-bold text-center text-lg">{$_(pendingClaimRequest.item.title)}</h4>
+                         <p class="text-sm text-center opacity-80">{$_(pendingClaimRequest.item.description)}</p>
                          {#if pendingClaimRequest.message}
                             <div class="divider my-2"></div>
                             <p class="text-sm italic text-center">"{pendingClaimRequest.message}"</p>
@@ -778,7 +775,7 @@
             
         </div>
         <form method="dialog" class="modal-backdrop">
-             <button onclick={closeVerifyModal}>{$_('profile.close')}</button>
+             <button onclick={closeVerifyModal}>{$_('common.close')}</button>
         </form>
     </dialog>
     </div>

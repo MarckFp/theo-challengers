@@ -32,7 +32,6 @@
         "full": "Full",
         "need": "Need {cost} 🪙",
         "buy": "Buy",
-        "cancel": "Cancel",
         "confirm_title": "Confirm Purchase",
         "refresh_button": "Refresh Store (3 🪙)",
         "refresh_store_confirm": "Refresh store for 3 coins?",
@@ -61,11 +60,6 @@
         "validate_manually": "Validate Manually",
         "verify_claim_title": "Verify Claim",
         "verify_claim_subtitle": "Paste the Claim Code your friend sent you.",
-        "enter_confirmation": "Finalize",
-        "complete_challenge_title": "Finalize Challenge",
-        "enter_confirmation_desc": "Paste the link or code sent by your friend confirm completion.",
-        "paste_confirmation_code": "Paste Confirmation Link/Code...",
-        "validate_and_complete": "Complete & Get Points!",
         "wait_friend_verification": "Wait for your friend to send a Verification Link, or paste code here:",
         "paste_claim_code": "Or paste claim code/link...",
         "create_another_link": "Create Another",
@@ -103,7 +97,6 @@
         "confirm_title": "Confirm Completion",
         "confirm_desc": "Send this Confirmation Link back:",
         "share_confirm": "Share Confirmation Link",
-        "close": "Close",
         "challenge_sent_title": "Challenge Created!",
         "select_challenge_title": "Select a Challenge",
         "select_challenge_subtitle": "Pick an item from your inventory to generate a Challenge Link.",
@@ -122,7 +115,6 @@
         "share_verify_text": "Confirm I completed the challenge!",
         "share_confirmed_title": "Challenge Confirmed!",
         "streak_bonus_applied": "Streak Bonus! Points x{multiplier}!",
-        "active_challenges": "Active Challenges",
         "no_active_challenges": "Wait for a friend to send you one!"
     },
     "inventory": {
@@ -135,7 +127,6 @@
         "remove_title": "Remove Item",
         "remove_confirm_title": "Remove Item?",
         "remove_confirm_desc": "Are you sure you want to remove this item? You will lose the coins meant for this item.",
-        "cancel": "Cancel",
         "confirm_remove": "Remove"
     },
     "profile": {
@@ -144,7 +135,6 @@
         "delete_title": "Delete Account",
         "delete_confirm": "Are you sure you want to delete your account? This action cannot be undone and you will lose all your progress, items, and stats.",
         "delete_btn": "Yes, Delete Everything",
-        "close": "Close",
         "export_data": "Export Data",
         "import_data": "Import Data",
         "change_nickname": "Change Nickname",
@@ -153,8 +143,7 @@
         "data_management": "Data Management",
         "reset_data": "Reset Data",
         "reset_confirm": "Are you sure? This will delete all your progress!",
-        "save": "Save",
-        "cancel": "Cancel"
+        "save": "Save"
     },
     "leaderboard": {
         "title": "Leaderboard",
@@ -166,7 +155,10 @@
     "common": {
         "loading": "Loading...",
         "error": "An error occurred",
-        "success": "Success!"
+        "success": "Success!",
+        "cancel": "Cancel",
+        "close": "Close",
+        "confirm": "Confirm"
     },
     "bonus": {
         "title": "Daily Bonus!",
@@ -182,5 +174,22 @@
         "legend": "Legend",
         "next_level": "Next Level",
         "max_level": "Max Level"
+    },
+    "challenges": {
+      "first_comment": { "title": "First Comment", "desc": "Be the first to give a comment during the meeting." },
+      "bible_comment": { "title": "Bible Comment", "desc": "Read and comment on a scripture during the meeting." },
+      "encourage_brother": { "title": "Encourage a Brother", "desc": "Send an encouraging text or card to a fellow believer." },
+      "more_comments": { "title": "Double Comment", "desc": "Give at least two comments during the meeting." },
+      "talk_older": { "title": "Wisdom Exchange", "desc": "Have a conversation with an elderly brother or sister." },
+      "preach_different": { "title": "New Partner", "desc": "Go in service with someone you haven't worked with recently." },
+      "help_cleaning": { "title": "Kingdom Clean", "desc": "Participate in cleaning the Kingdom Hall after the meeting." },
+      "hospitality": { "title": "Open Heart", "desc": "Show hospitality by inviting someone for a meal or coffee." },
+      "hardest_hello": { "title": "Hardest Hello", "desc": "Greet someone you usually find it difficult to talk to." },
+      "pioneer_date": { "title": "Pioneer Date", "desc": "Make an arrangement to go in service with a pioneer." },
+      "encouragement_correspondent": { "title": "Pen Pal", "desc": "Write a letter to someone who needs encouragement." },
+      "meeting_echo": { "title": "Meeting Echo", "desc": "Discuss a specific point from the meeting with a friend." },
+      "bible_researcher": { "title": "Bible Researcher", "desc": "Do extra research on a topic and share it with someone." },
+      "right_hand": { "title": "Right Hand", "desc": "Warmly welcome a new person or visitor at the meeting." },
+      "faith_interview": { "title": "Faith Interview", "desc": "Ask a mature Christian how they overcame a trial." }
     }
 }

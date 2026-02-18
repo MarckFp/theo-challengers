@@ -1,120 +1,120 @@
 {
     "challengues": [
         {
-            "title": "¡Primer comentario!",
-            "description": "Comenta antes que nadie más y gana",
+            "title": "challenges.first_comment.title",
+            "description": "challenges.first_comment.desc",
             "points": 1,
             "cost": 1,
             "reward": 1,
             "icon": "⚡"
         },
         {
-            "title": "Comenta basandote en la Biblia",
-            "description": "Haz un comentario que se base en un texto bíblico.",
+            "title": "challenges.bible_comment.title",
+            "description": "challenges.bible_comment.desc",
             "points": 1,
             "cost": 1,
             "reward": 1,
             "icon": "📖"
         },
         {
-            "title": "Anima a un hermano",
-            "description": "Destaca algo que te guste de su forma de ser o de su participación. ¡Un cumplido sincero siempre es bienvenido!",
+            "title": "challenges.encourage_brother.title",
+            "description": "challenges.encourage_brother.desc",
             "points": 1,
             "cost": 1,
             "reward": 1,
             "icon": "🧡"
         },
         {
-            "title": "Ofrece más comentarios",
-            "description": "Comenta dos o más veces. ¡Cuantas más mejor!",
+            "title": "challenges.more_comments.title",
+            "description": "challenges.more_comments.desc",
             "points": 2,
             "cost": 3,
             "reward": 1,
             "icon": "🗣️"
         },
         {
-            "title": "Conversa con un hermano mayor",
-            "description": "Habla con un hermano mayor y aprende de su experiencia. No vale un simple saludo, ¡debe ser una conversación real!",
+            "title": "challenges.talk_older.title",
+            "description": "challenges.talk_older.desc",
             "points": 5,
             "cost": 5,
             "reward": 3,
             "icon": "👴"
         },
         {
-            "title": "Predica con alguien diferente",
-            "description": "Queda con alguien que no conozcas bien y predica juntos. ¡Es una gran oportunidad para hacer nuevos amigos!",
+            "title": "challenges.preach_different.title",
+            "description": "challenges.preach_different.desc",
             "points": 5,
             "cost": 5,
             "reward": 3,
             "icon": "🤝"
         },
         {
-            "title": "Ofrecete para ayudar en la limpieza",
-            "description": "Sea que te toque limpiar... o no... Ayuda en la limpieza y mantén el lugar ordenado. ¡Tu esfuerzo será recompensado!",
+            "title": "challenges.help_cleaning.title",
+            "description": "challenges.help_cleaning.desc",
             "points": 3,
             "cost": 3,
             "reward": 1,
             "icon": "🧹"
         },
         {
-            "title": "Hospitalidad Express",
-            "description": "Invita a un hermano (o a una familia) a tomar un café o un snack después de la reunión o la predicación.",
+            "title": "challenges.hospitality.title",
+            "description": "challenges.hospitality.desc",
             "points": 10,
             "cost": 5,
             "reward": 8,
             "icon": "☕"
         },
         {
-            "title": "El 'Hola' más difícil",
-            "description": "Saluda y conversa brevemente con alguien de la congregación con quien casi nunca hablas.",
+            "title": "challenges.hardest_hello.title",
+            "description": "challenges.hardest_hello.desc",
             "points": 4,
             "cost": 2,
             "reward": 3,
             "icon": "🤝"
         },
         {
-            "title": "Cita con un precursor",
-            "description": "Acompaña a un precursor regular en su horario de predicación. ¡Su entusiasmo se contagia!",
+            "title": "challenges.pioneer_date.title",
+            "description": "challenges.pioneer_date.desc",
             "points": 7,
             "cost": 4,
             "reward": 5,
             "icon": "👜"
         },
         {
-            "title": "Corresponsal de ánimo",
-            "description": "Envía un mensaje de texto o escribe una tarjeta a un hermano que esté enfermo o que no haya podido ir a la reunión.",
+            "title": "challenges.encouragement_correspondent.title",
+            "description": "challenges.encouragement_correspondent.desc",
             "points": 5,
             "cost": 3,
             "reward": 4,
             "icon": "✉️"
         },
         {
-            "title": "Eco en la reunión",
-            "description": "Menciona un punto que aprendiste en la reunión a alguien de tu familia o a un amigo al terminar.",
+            "title": "challenges.meeting_echo.title",
+            "description": "challenges.meeting_echo.desc",
             "points": 3,
             "cost": 2,
             "reward": 2,
             "icon": "📢"
         },
         {
-            "title": "Investigador bíblico",
-            "description": "Busca un detalle curioso en la lectura de la Biblia de la semana y compártelo con alguien en el Salón.",
+            "title": "challenges.bible_researcher.title",
+            "description": "challenges.bible_researcher.desc",
             "points": 6,
             "cost": 3,
             "reward": 4,
             "icon": "🔍"
         },
         {
-            "title": "Mano derecha",
-            "description": "Pregunta a los hermanos que tienen asignaciones (sonido, acomodadores, plataforma...) si necesitan ayuda con algo sencillo.",
+            "title": "challenges.right_hand.title",
+            "description": "challenges.right_hand.desc",
             "points": 5,
             "cost": 3,
             "reward": 4,
             "icon": "🛠️"
         },
         {
-            "title": "Entrevista de fe",
-            "description": "Pregúntale a un hermano con muchos años bautizado: '¿Qué es lo que más te ha ayudado a aguantar?'. ¡Escucha con atención!",
+            "title": "challenges.faith_interview.title",
+            "description": "challenges.faith_interview.desc",
             "points": 9,
             "cost": 3,
             "reward": 7,

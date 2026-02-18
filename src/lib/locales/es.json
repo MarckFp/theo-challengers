@@ -32,7 +32,6 @@
         "full": "Lleno",
         "need": "Necesitas {cost} 🪙",
         "buy": "Comprar",
-        "cancel": "Cancelar",
         "confirm_title": "Confirmar Compra",
         "refresh_button": "Actualizar Tienda (3 🪙)",
         "refresh_store_confirm": "¿Actualizar tienda por 3 monedas?",
@@ -61,11 +60,6 @@
         "validate_manually": "Validar Manualmente",
         "verify_claim_title": "Verificar Desafío",
         "verify_claim_subtitle": "Pega el Código de Desafío que te envió tu amigo.",
-        "enter_confirmation": "Finalizar",
-        "complete_challenge_title": "Finalizar Desafío",
-        "enter_confirmation_desc": "Pega el enlace o código que te envió tu amigo para confirmar.",
-        "paste_confirmation_code": "Pega el Enlace de Confirmación...",
-        "validate_and_complete": "¡Completar y Ganar Puntos!",
         "wait_friend_verification": "Espera a que tu amigo envíe un Enlace de Verificación, o pega el código aquí:",
         "paste_claim_code": "O pega el código/enlace de desafío...",
         "create_another_link": "Crear Otro",
@@ -103,7 +97,6 @@
         "confirm_title": "Confirmar Completado",
         "confirm_desc": "Envía este Enlace de Confirmación de vuelta:",
         "share_confirm": "Compartir Enlace de Confirmación",
-        "close": "Cerrar",
         "challenge_sent_title": "¡Desafío Creado!",
         "select_challenge_title": "Selecciona un Desafío",
         "select_challenge_subtitle": "Elige un objeto de tu inventario para generar un Enlace de Desafío.",
@@ -135,7 +128,6 @@
         "remove_title": "Eliminar Objeto",
         "remove_confirm_title": "¿Eliminar Objeto?",
         "remove_confirm_desc": "¿Seguro que quieres eliminar este objeto? Perderás las monedas invertidas.",
-        "cancel": "Cancelar",
         "confirm_remove": "Eliminar"
     },
     "profile": {
@@ -144,7 +136,6 @@
         "delete_title": "Eliminar Cuenta",
         "delete_confirm": "¿Seguro que quieres eliminar tu cuenta? Esta acción no se puede deshacer y perderás todo tu progreso, objetos y estadísticas.",
         "delete_btn": "Sí, Eliminar Todo",
-        "close": "Cerrar",
         "export_data": "Exportar Datos",
         "import_data": "Importar Datos",
         "change_nickname": "Cambiar Apodo",
@@ -153,8 +144,7 @@
         "data_management": "Gestión de Datos",
         "reset_data": "Restablecer Datos",
         "reset_confirm": "¿Estás seguro? ¡Esto borrará todo tu progreso!",
-        "save": "Guardar",
-        "cancel": "Cancelar"
+        "save": "Guardar"
     },
     "leaderboard": {
         "title": "Ranking",
@@ -166,7 +156,10 @@
     "common": {
         "loading": "Cargando...",
         "error": "Ocurrió un error",
-        "success": "¡Éxito!"
+        "success": "¡Éxito!",
+        "cancel": "Cancelar",
+        "close": "Cerrar",
+        "confirm": "Confirmar"
     },
     "bonus": {
         "title": "¡Bono Diario!",
@@ -182,5 +175,22 @@
         "legend": "Leyenda",
         "next_level": "Siguiente Nivel",
         "max_level": "Nivel Máximo"
+    },
+    "challenges": {
+      "first_comment": { "title": "Primer Comentario", "desc": "Sé el primero en comentar durante la reunión." },
+      "bible_comment": { "title": "Comentario Bíblico", "desc": "Lee y comenta un texto bíblico durante la reunión." },
+      "encourage_brother": { "title": "Animar a un Hermano", "desc": "Envía un mensaje o tarjeta de ánimo a un compañero de fe." },
+      "more_comments": { "title": "Doble Comentario", "desc": "Da al menos dos comentarios durante la reunión." },
+      "talk_older": { "title": "Intercambio de Sabiduría", "desc": "Conversa con un hermano o hermana mayor." },
+      "preach_different": { "title": "Nuevo Compañero", "desc": "Sal a predicar con alguien con quien no hayas trabajado recientemente." },
+      "help_cleaning": { "title": "Limpieza del Salón", "desc": "Participa en la limpieza del Salón del Reino después de la reunión." },
+      "hospitality": { "title": "Corazón Abierto", "desc": "Muestra hospitalidad invitando a alguien a comer o tomar un café." },
+      "hardest_hello": { "title": "El Saludo Difícil", "desc": "Saluda a alguien con quien normalmente te cuesta hablar." },
+      "pioneer_date": { "title": "Cita con Precursor", "desc": "Haz planes para salir a predicar con un precursor." },
+      "encouragement_correspondent": { "title": "Amigo por Carta", "desc": "Escribe una carta a alguien que necesite ánimo." },
+      "meeting_echo": { "title": "Eco de la Reunión", "desc": "Comenta un punto específico de la reunión con un amigo al terminar." },
+      "bible_researcher": { "title": "Investigador Bíblico", "desc": "Investiga un tema y compártelo con alguien." },
+      "right_hand": { "title": "Mano Derecha", "desc": "Da una calurosa bienvenida a una persona nueva o visitante." },
+      "faith_interview": { "title": "Entrevista de Fe", "desc": "Pregunta a un cristiano maduro cómo superó una prueba." }
     }
 }

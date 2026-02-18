@@ -36,7 +36,7 @@
 </script>
 
 {#if checking}
-    <div class="flex h-screen w-full items-center justify-center bg-base-200">
+    <div class="flex h-dvh w-full items-center justify-center bg-base-200">
         <span class="loading loading-spinner loading-lg text-primary"></span>
     </div>
 {:else if hasPlayer}

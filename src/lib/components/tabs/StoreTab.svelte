@@ -14,6 +14,15 @@
     let isRefreshConfirmOpen = $state(false);
     let itemToBuy = $state<any>(null);
 
+    // View Modal State
+    let isViewModalOpen = $state(false);
+    let viewingItem = $state<any>(null);
+
+    function openViewModal(item: any) {
+        viewingItem = item;
+        isViewModalOpen = true;
+    }
+
     // Subscribe to player data
     $effect(() => {
         const sub = liveQuery(() => db.player.toArray()).subscribe(p => {
@@ -223,8 +232,11 @@
     {:else}
         <div class="grid grid-cols-2 gap-4">
             {#each shopItems as item}
-                <div class={`card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-all 
-                            ${purchasingItem === item.title ? 'shake border-success bg-success/10' : ''}`}>
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div class={`card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-all cursor-pointer top-active-scale
+                            ${purchasingItem === item.title ? 'shake border-success bg-success/10' : ''}`}
+                            onclick={() => openViewModal(item)}>
                     <figure class="px-4 pt-4">
                         <div class={`aspect-square w-full rounded-xl bg-base-200/50 flex flex-col items-center justify-center gap-2 relative group ${item.purchased ? 'opacity-50 grayscale' : ''}`}>
                             <span class="text-4xl drop-shadow-sm transform group-hover:scale-110 transition-transform duration-300">{item.icon || '🎁'}</span>
@@ -232,13 +244,13 @@
                         </div>
                     </figure>
                     <div class="card-body p-3 items-center text-center">
-                        <h3 class="font-bold text-sm leading-tight min-h-[2.5em] flex items-center justify-center line-clamp-2">{item.title}</h3>
-                        <p class="text-xs text-base-content/80 leading-tight min-h-[3rem]">{item.description}</p>
+                        <h3 class="font-bold text-sm leading-tight min-h-[2.5em] flex items-center justify-center line-clamp-2">{$_(item.title)}</h3>
+                        <p class="text-xs text-base-content/80 leading-tight min-h-[3rem]">{$_(item.description)}</p>
                         <div class="card-actions mt-3 w-full">
                             <button 
                                 class="btn btn-primary btn-sm w-full font-bold gap-1"
                                 disabled={coins < item.cost || inventoryCount >= 3 || item.purchased}
-                                onclick={() => initiateBuy(item)}
+                                onclick={(e) => { e.stopPropagation(); initiateBuy(item); }}
                             >
                                 {#if item.purchased}
                                     <span class="text-xs">{$_('store.purchased')}</span>
@@ -266,7 +278,7 @@
 
     <div class="divider my-0"></div>
 
-    <div class="flex justify-center pb-4">
+    <div class="flex justify-center pb-28 md:pb-4">
         <button 
             class="btn btn-secondary btn-outline w-full gap-2"
             disabled={coins < 3}
@@ -283,11 +295,11 @@
              <h3 class="font-bold text-lg">{$_('store.confirm_title')}</h3>
              {#if itemToBuy}
                 <p class="py-4">
-                    {$_('store.buy_confirm', { values: { item: itemToBuy.title, cost: itemToBuy.cost } })}
+                    {$_('store.buy_confirm', { values: { item: $_(itemToBuy.title), cost: itemToBuy.cost } })}
                 </p>
             {/if}
             <div class="modal-action">
-                <button class="btn" onclick={() => isConfirmModalOpen = false}>Close</button>
+                <button class="btn" onclick={() => isConfirmModalOpen = false}>{$_('common.cancel')}</button>
                 <button class="btn btn-primary" onclick={confirmBuy}>{$_('store.buy')}</button>
             </div>
         </div>
@@ -304,12 +316,53 @@
                 {$_('store.refresh_store_confirm')}
              </p>
             <div class="modal-action">
-                <button class="btn" onclick={() => isRefreshConfirmOpen = false}>{$_('store.cancel')}</button>
+                <button class="btn" onclick={() => isRefreshConfirmOpen = false}>{$_('common.cancel')}</button>
                 <button class="btn btn-secondary" onclick={confirmRefresh}>{$_('store.buy')} 3 🪙</button>
             </div>
         </div>
         <form method="dialog" class="modal-backdrop">
-            <button onclick={() => isRefreshConfirmOpen = false}>close</button>
+            <button onclick={() => isRefreshConfirmOpen = false}>{$_('common.close')}</button>
+        </form>
+    </dialog>
+
+    <!-- View Item Modal -->
+    <dialog class="modal modal-bottom sm:modal-middle" open={isViewModalOpen}>
+        <div class="modal-box">
+             {#if viewingItem}
+                <div class="flex flex-col items-center gap-4 py-4">
+                    <div class="text-8xl drop-shadow-md pb-4">{viewingItem.icon || '🎁'}</div>
+                    <h3 class="font-bold text-2xl text-center">{$_(viewingItem.title)}</h3>
+                    <div class="badge badge-lg badge-ghost">{viewingItem.points} 🏆</div>
+                    <p class="text-center text-lg text-base-content/80">{$_(viewingItem.description)}</p>
+                    
+                    <div class="divider my-0"></div>
+
+                     <button 
+                        class="btn btn-primary btn-lg w-full font-bold gap-2"
+                        disabled={coins < viewingItem.cost || inventoryCount >= 3 || viewingItem.purchased}
+                        onclick={() => { 
+                            isViewModalOpen = false;
+                            initiateBuy(viewingItem); 
+                        }}
+                    >
+                        {#if viewingItem.purchased}
+                            <span>{$_('store.purchased')}</span>
+                        {:else if inventoryCount >= 3}
+                            <span>{$_('store.full')}</span>
+                        {:else if coins < viewingItem.cost}
+                            <span>{$_('store.need', { values: { cost: viewingItem.cost } })}</span>
+                        {:else}
+                            {$_('store.buy')} {viewingItem.cost} 🪙
+                        {/if}
+                    </button>
+                    <button class="btn btn-ghost w-full mt-2" onclick={() => isViewModalOpen = false}>
+                        {$_('common.cancel')}
+                    </button>
+                </div>
+             {/if}
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button onclick={() => isViewModalOpen = false}>{$_('common.close')}</button>
         </form>
     </dialog>
 </div>

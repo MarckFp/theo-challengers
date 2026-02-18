@@ -45,7 +45,7 @@
 	}
 </script>
 
-<div class="min-h-screen w-full flex flex-col items-center justify-center bg-base-100 p-6 selection:bg-primary selection:text-primary-content">
+<div class="min-h-dvh w-full flex flex-col items-center justify-center bg-base-100 p-6 selection:bg-primary selection:text-primary-content">
 	<div class="w-full max-w-sm flex flex-col items-center space-y-12 animate-[fadIn_0.5s_ease-out]">
         
         <!-- Minimal Brand -->

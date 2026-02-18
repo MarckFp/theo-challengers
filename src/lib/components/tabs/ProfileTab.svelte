@@ -129,6 +129,7 @@
 
     function handleLangChange() {
         locale.set(currentLang);
+        localStorage.setItem('locale', currentLang);
     }
 
     // Delete Account Logic
@@ -267,12 +268,12 @@
             <h3 class="font-bold text-lg text-error">{$_('profile.danger_zone')}</h3>
             <p class="py-4">{$_('profile.delete_confirm')}</p>
             <div class="modal-action">
-                <button class="btn" onclick={() => isDeleteModalOpen = false}>{$_('inventory.cancel')}</button>
+                <button class="btn" onclick={() => isDeleteModalOpen = false}>{$_('common.cancel')}</button>
                 <button class="btn btn-error" onclick={handleDeleteAccount}>{$_('profile.delete_btn')}</button>
             </div>
         </div>
         <form method="dialog" class="modal-backdrop">
-            <button onclick={() => isDeleteModalOpen = false}>{$_('profile.close')}</button>
+            <button onclick={() => isDeleteModalOpen = false}>{$_('common.close')}</button>
         </form>
     </dialog>
 </div>

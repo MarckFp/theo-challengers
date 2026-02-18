@@ -12,6 +12,15 @@
     let isDeleteModalOpen = $state(false);
     let itemToDelete = $state<Inventory | null>(null);
 
+    // View Modal State
+    let isViewModalOpen = $state(false);
+    let viewingItem = $state<Inventory | null>(null);
+
+    function openViewModal(item: Inventory) {
+        viewingItem = item;
+        isViewModalOpen = true;
+    }
+
     // Subscribe to player
     $effect(() => {
         const sub = liveQuery(() => db.player.toArray()).subscribe(p => {
@@ -80,18 +89,21 @@
     {:else}
         <div class="grid gap-4">
             {#each inventoryItems as item}
-                <div class="card card-side bg-base-100 shadow-sm border border-base-200 p-2">
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div class="card card-side bg-base-100 shadow-sm border border-base-200 p-2 cursor-pointer transition-all hover:bg-base-200/50"
+                     onclick={() => openViewModal(item)}>
                     <figure class="w-20 bg-base-200 rounded-xl flex items-center justify-center text-3xl shrink-0">
                         {item.icon || '📜'}
                     </figure>
                     <div class="card-body p-3 w-full">
                         <div class="flex justify-between items-start w-full gap-2">
-                            <h3 class="card-title text-base">{item.title}</h3>
+                            <h3 class="card-title text-base">{$_(item.title)}</h3>
                              <div class="badge badge-sm badge-ghost shrink-0">+{item.points} 🏆</div>
                         </div>
-                        <p class="text-xs text-base-content/80">{item.description}</p>
+                        <p class="text-xs text-base-content/80">{$_(item.description)}</p>
                         <div class="card-actions justify-end mt-2">
-                            <button class="btn btn-xs btn-outline btn-error" onclick={() => initiateDelete(item)}>
+                            <button class="btn btn-xs btn-outline btn-error" onclick={(e) => { e.stopPropagation(); initiateDelete(item); }}>
                                 {$_('inventory.remove_title')}
                             </button>
                         </div>
@@ -114,12 +126,38 @@
              <h3 class="font-bold text-lg text-error">{$_('inventory.remove_confirm_title')}</h3>
              <p class="py-4">{$_('inventory.remove_confirm_desc')}</p>
             <div class="modal-action">
-                <button class="btn" onclick={() => isDeleteModalOpen = false}>{$_('inventory.cancel')}</button>
+                <button class="btn" onclick={() => isDeleteModalOpen = false}>{$_('common.cancel')}</button>
                 <button class="btn btn-error" onclick={confirmDelete}>{$_('inventory.confirm_remove')}</button>
             </div>
         </div>
         <form method="dialog" class="modal-backdrop">
-            <button onclick={() => isDeleteModalOpen = false}>{$_('profile.close')}</button>
+            <button onclick={() => isDeleteModalOpen = false}>{$_('common.close')}</button>
         </form>
     </dialog>
-</div>
+    <!-- View Item Modal -->
+    <dialog class="modal modal-bottom sm:modal-middle" open={isViewModalOpen}>
+        <div class="modal-box">
+             {#if viewingItem}
+                <div class="flex flex-col items-center gap-4 py-4">
+                    <div class="text-8xl drop-shadow-md pb-4">{viewingItem.icon || '📜'}</div>
+                    <h3 class="font-bold text-2xl text-center">{$_(viewingItem.title)}</h3>
+                    <div class="badge badge-lg badge-ghost">+{viewingItem.points} 🏆</div>
+                    <p class="text-center text-lg text-base-content/80">{$_(viewingItem.description)}</p>
+                    
+                    <div class="divider my-0"></div>
+
+                    <div class="flex w-full gap-2">
+                         <button class="btn btn-outline btn-error flex-1" onclick={() => { isViewModalOpen = false; initiateDelete(viewingItem!); }}>
+                                {$_('inventory.remove_title')}
+                        </button>
+                        <button class="btn btn-ghost flex-1" onclick={() => isViewModalOpen = false}>
+                            {$_('common.cancel')}
+                        </button>
+                    </div>
+                </div>
+             {/if}
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button onclick={() => isViewModalOpen = false}>{$_('common.close')}</button>
+        </form>
+    </dialog></div>
