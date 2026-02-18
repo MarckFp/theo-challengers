@@ -23,7 +23,11 @@
 
     $effect(() => {
         const unsubscribe = locale.subscribe(l => {
-            if (l) currentLang = l.startsWith('es') ? 'es' : 'en';
+            if (l) {
+                if (l.startsWith('es')) currentLang = 'es';
+                else if (l.startsWith('fr')) currentLang = 'fr';
+                else currentLang = 'en';
+            }
         });
         return unsubscribe;
     });
@@ -170,6 +174,7 @@
              <select class="select select-bordered w-full" bind:value={currentLang} onchange={handleLangChange}>
                 <option value="en">English</option>
                 <option value="es">Español</option>
+                <option value="fr">Français</option>
             </select>
         </div>
 

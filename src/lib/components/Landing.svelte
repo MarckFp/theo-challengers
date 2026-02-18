@@ -59,6 +59,10 @@
                 {$_('landing.title')}
             </h1>
 			<p class="text-base-content/60 font-medium">{$_('landing.subtitle')}</p>
+            
+            <button class="btn btn-xs btn-ghost text-primary no-animation hover:bg-transparent hover:underline" onclick={() => (document.getElementById('guide_modal') as HTMLDialogElement)?.showModal()}>
+                {$_('landing.how_to_play')} ℹ️
+            </button>
 		</div>
 			
         <!-- Minimal Form -->
@@ -93,4 +97,64 @@
             {$_('landing.press_enter')}
         </div>
 	</div>
+
+    <dialog id="guide_modal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg text-center mb-4">{$_('landing.guide.title')}</h3>
+            
+            <ul class="timeline timeline-vertical timeline-compact -ml-4">
+                <li>
+                    <div class="timeline-middle">
+                        <span class="bg-primary/20 text-primary rounded-full p-1 text-xs">🪙</span>
+                    </div>
+                    <div class="timeline-end mb-4">
+                        <div class="font-bold text-sm">{$_('landing.guide.step_1_title')}</div>
+                        <div class="text-xs text-base-content/70">{$_('landing.guide.step_1_desc')}</div>
+                    </div>
+                    <hr class="bg-base-300"/>
+                </li>
+                <li>
+                    <hr class="bg-base-300"/>
+                    <div class="timeline-middle">
+                        <span class="bg-secondary/20 text-secondary rounded-full p-1 text-xs">🛍️</span>
+                    </div>
+                    <div class="timeline-end mb-4">
+                        <div class="font-bold text-sm">{$_('landing.guide.step_2_title')}</div>
+                         <div class="text-xs text-base-content/70">{$_('landing.guide.step_2_desc')}</div>
+                    </div>
+                    <hr class="bg-base-300"/>
+                </li>
+                <li>
+                    <hr class="bg-base-300"/>
+                    <div class="timeline-middle">
+                        <span class="bg-accent/20 text-accent rounded-full p-1 text-xs">📤</span>
+                    </div>
+                    <div class="timeline-end mb-4">
+                        <div class="font-bold text-sm">{$_('landing.guide.step_3_title')}</div>
+                        <div class="text-xs text-base-content/70">{$_('landing.guide.step_3_desc')}</div>
+                    </div>
+                    <hr class="bg-base-300"/>
+                </li>
+                <li>
+                    <hr class="bg-base-300"/>
+                    <div class="timeline-middle">
+                        <span class="bg-success/20 text-success rounded-full p-1 text-xs">✅</span>
+                    </div>
+                    <div class="timeline-end">
+                        <div class="font-bold text-sm">{$_('landing.guide.step_4_title')}</div>
+                        <div class="text-xs text-base-content/70">{$_('landing.guide.step_4_desc')}</div>
+                    </div>
+                </li>
+            </ul>
+
+            <div class="modal-action justify-center w-full">
+                <form method="dialog" class="w-full">
+                    <button class="btn btn-primary w-full shadow-lg">{$_('landing.guide.close')}</button>
+                </form>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
 </div>

@@ -6,7 +6,20 @@
         "error_empty": "Please enter a nickname",
         "error_create": "Failed to create player. Try a different name?",
         "continue": "Continue",
-        "press_enter": "PRESS ENTER TO START"
+        "press_enter": "PRESS ENTER TO START",
+        "how_to_play": "How to Play",
+        "guide": {
+            "title": "Welcome to Theo Challengers!",
+            "step_1_title": "1. Collect Coins",
+            "step_1_desc": "You start with 2 coins. Earn more by completing daily challenges.",
+            "step_2_title": "2. Visit the Shop",
+            "step_2_desc": "Use your coins to buy challenge items from the Daily Shop (reset every day!).",
+            "step_3_title": "3. Challenge Friends",
+            "step_3_desc": "Send a challenge link to a friend via messaging apps.",
+            "step_4_title": "4. Verify & Win",
+            "step_4_desc": "When they complete it, they send you a claim link. Verify it to earn points!",
+            "close": "Got it, Let's Play!"
+        }
     },
     "store": {
         "title": "Daily Shop",
