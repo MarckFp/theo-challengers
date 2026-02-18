@@ -1,12 +1,14 @@
 <script lang="ts">
     import { db } from '$lib/db';
     import { liveQuery } from 'dexie';
-    import type { Player } from '$lib/models/player';
     import type { Inventory } from '$lib/models/inventory';
-    import type { Challengue } from '$lib/models/challengue';
     import { _ } from 'svelte-i18n';
+    import { useUser } from '$lib/stores/user.svelte';
+    import { I18N } from '$lib/i18n-keys';
 
-    let players = $state<Player[]>([]);
+    const userStore = useUser();
+    let player = $derived(userStore.value);
+    
     let inventoryItems = $state<Inventory[]>([]);
 
     let isDeleteModalOpen = $state(false);
@@ -21,21 +23,11 @@
         isViewModalOpen = true;
     }
 
-    // Subscribe to player
-    $effect(() => {
-        const sub = liveQuery(() => db.player.toArray()).subscribe(p => {
-            players = p;
-        });
-        return () => sub.unsubscribe();
-    });
-
-    let player = $derived(players[0]);
-
     // Subscribe to inventory items
     $effect(() => {
         if (!player || !player.id) return;
         const sub = liveQuery(() => 
-            db.inventory.where('player_id').equals(player.id!).toArray()
+            db.inventory.where('player_id').equals(player!.id!).toArray()
         ).subscribe(items => {
             inventoryItems = items;
         });
@@ -63,9 +55,9 @@
 <div class="space-y-6 animate-in fade-in zoom-in duration-300">
     <div class="flex justify-between items-center px-1">
         <div>
-            <h2 class="text-2xl font-bold">{$_('inventory.title')}</h2>
+            <h2 class="text-2xl font-bold">{$_(I18N.inventory.title)}</h2>
             <p class="text-xs text-base-content/60">
-                {$_('inventory.count', { values: { count: inventoryItems.length } })}
+                {$_(I18N.inventory.count, { values: { count: inventoryItems.length } })}
             </p>
         </div>
         {#if player}
@@ -82,8 +74,8 @@
          <div class="card bg-base-100 shadow-sm border border-base-200 py-12 text-center">
             <div class="card-body items-center justify-center text-base-content/70">
                 <span class="text-6xl mb-4">🎒</span>
-                <h3 class="font-bold text-lg">{$_('inventory.empty_title')}</h3>
-                <p>{$_('inventory.empty_desc')}</p>
+                <h3 class="font-bold text-lg">{$_(I18N.inventory.empty_title)}</h3>
+                <p>{$_(I18N.inventory.empty_desc)}</p>
             </div>
          </div>
     {:else}
@@ -104,7 +96,7 @@
                         <p class="text-xs text-base-content/80">{$_(item.description)}</p>
                         <div class="card-actions justify-end mt-2">
                             <button class="btn btn-xs btn-outline btn-error" onclick={(e) => { e.stopPropagation(); initiateDelete(item); }}>
-                                {$_('inventory.remove_title')}
+                                {$_(I18N.inventory.remove_title)}
                             </button>
                         </div>
                     </div>
@@ -116,22 +108,22 @@
     {#if inventoryItems.length < 3}
          <div class="alert alert-info py-2 text-sm shadow-sm bg-base-200/50 border-base-300 text-base-content">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            <span>{$_('inventory.slots_available', { values: { count: 3 - inventoryItems.length } })}</span>
+            <span>{$_(I18N.inventory.slots_available, { values: { count: 3 - inventoryItems.length } })}</span>
         </div>
     {/if}
 
     <!-- Delete Confirmation Modal -->
     <dialog class="modal modal-bottom sm:modal-middle" open={isDeleteModalOpen}>
         <div class="modal-box">
-             <h3 class="font-bold text-lg text-error">{$_('inventory.remove_confirm_title')}</h3>
-             <p class="py-4">{$_('inventory.remove_confirm_desc')}</p>
+             <h3 class="font-bold text-lg text-error">{$_(I18N.inventory.remove_confirm_title)}</h3>
+             <p class="py-4">{$_(I18N.inventory.remove_confirm_desc)}</p>
             <div class="modal-action">
-                <button class="btn" onclick={() => isDeleteModalOpen = false}>{$_('common.cancel')}</button>
-                <button class="btn btn-error" onclick={confirmDelete}>{$_('inventory.confirm_remove')}</button>
+                <button class="btn" onclick={() => isDeleteModalOpen = false}>{$_(I18N.common.cancel)}</button>
+                <button class="btn btn-error" onclick={confirmDelete}>{$_(I18N.inventory.confirm_remove)}</button>
             </div>
         </div>
         <form method="dialog" class="modal-backdrop">
-            <button onclick={() => isDeleteModalOpen = false}>{$_('common.close')}</button>
+            <button onclick={() => isDeleteModalOpen = false}>{$_(I18N.common.close)}</button>
         </form>
     </dialog>
     <!-- View Item Modal -->
@@ -148,16 +140,16 @@
 
                     <div class="flex w-full gap-2">
                          <button class="btn btn-outline btn-error flex-1" onclick={() => { isViewModalOpen = false; initiateDelete(viewingItem!); }}>
-                                {$_('inventory.remove_title')}
+                                {$_(I18N.inventory.remove_title)}
                         </button>
                         <button class="btn btn-ghost flex-1" onclick={() => isViewModalOpen = false}>
-                            {$_('common.cancel')}
+                            {$_(I18N.common.cancel)}
                         </button>
                     </div>
                 </div>
              {/if}
         </div>
         <form method="dialog" class="modal-backdrop">
-            <button onclick={() => isViewModalOpen = false}>{$_('common.close')}</button>
+            <button onclick={() => isViewModalOpen = false}>{$_(I18N.common.close)}</button>
         </form>
     </dialog></div>

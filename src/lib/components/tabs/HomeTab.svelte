@@ -1,51 +1,42 @@
 <script lang="ts">
     import { db } from '$lib/db';
     import { liveQuery } from 'dexie';
-    import type { Player } from '$lib/models/player';
     import type { Inventory } from '$lib/models/inventory';
     import type { Challengue } from '$lib/models/challengue';
-    import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     
-    // Helper to update leaderboard
-    async function updatePeerScore(nickname: string, score: number) {
-        if (!nickname || score === undefined) return;
-        try {
-            const existing = await db.leaderboard.where('nickname').equals(nickname).first();
-            if (existing) {
-                // Only update if score is higher or different? Or always take latest?
-                // For now, always take latest as trusted
-                await db.leaderboard.update(existing.id!, { score, updated_at: new Date() });
-            } else {
-                await db.leaderboard.add({ nickname, score, updated_at: new Date() });
-            }
-        } catch (e) { console.error('Leaderboard update failed', e); }
-    }
+    // Services & Stores
+    import { useUser } from '$lib/stores/user.svelte';
+    import { 
+        createChallengeLink, 
+        processIncomingChallengeLink, 
+        generateVerificationLink,
+        verifyClaimCode as serviceVerifyClaim,
+        finalizeChallengeClaim,
+    } from '$lib/services/challenge';
+    import { I18N } from '$lib/i18n-keys';
 
-    let players = $state<Player[]>([]);
+    // State
+    const userStore = useUser();
+    let currentUser = $derived(userStore.value);
+    
     let inventory = $state<Inventory[]>([]);
     let activeChallenges = $state<Challengue[]>([]);
-    let currentUser = $derived(players[0]);
     
     // Modal State
     let isSendModalOpen = $state(false);
+    let isVerificationModalOpen = $state(false); 
     
-    // Authorization Modal
-    let isAuthModalOpen = $state(false);
-    let authChallengeId = $state('');
-    let authKeyInput = $state('');
-
     let selectedItemId = $state<number | null>(null);
     let customMessage = $state('');
     let generatedShareLink = $state<string | null>(null);
     
     // Pending claim request info (for Receiver)
     let pendingClaimRequest = $state<{id: string, from: string, item: any, message?: string} | null>(null);
-    let generatedClaimCode = $state<string | null>(null);
 
     // Pending sent info (for Sender)
-    let pendingVerificationId = $state<string | null>(null);
-    let generatedAuthKey = $state<string | null>(null);
+    let pendingVerificationId = $state<string | null>(null); // Input for claim code
+    let generatedAuthKey = $state<string | null>(null); // Output auth link
 
     // Copy Feedback State
     let copiedState = $state<string | null>(null);
@@ -57,14 +48,6 @@
             if (copiedState === id) copiedState = null;
         }, 2000);
     }
-
-    // Fetch Players
-    $effect(() => {
-        const subscription = liveQuery(() => db.player.toArray()).subscribe(result => {
-            players = result;
-        });
-        return () => subscription.unsubscribe();
-    });
 
     // Fetch Inventory for Current User
     $effect(() => {
@@ -91,7 +74,6 @@
         return () => subscription.unsubscribe();
     });
 
-
     // Check for incoming challenge/verify/finalize via URL
     $effect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -111,8 +93,7 @@
         const verifyData = params.get('verify_claim');
         if (verifyData && currentUser?.id) {
             try {
-                // Auto-fill and open verify modal
-                pendingVerificationId = verifyData; // Store raw base64
+                pendingVerificationId = verifyData; 
                 openVerifyModal();
                 window.history.replaceState({}, document.title, window.location.pathname);
             } catch (e) { console.error("Invalid verify link", e); }
@@ -122,10 +103,9 @@
         const finalizeData = params.get('finalize');
         if (finalizeData && currentUser?.id) {
             try {
-                // Auto-finalize
                 const json = atob(finalizeData);
                 const data = JSON.parse(json);
-                finalizeClaim(data); // Pass data directly
+                finalizeClaim(data);
                 window.history.replaceState({}, document.title, window.location.pathname);
             } catch (e) { console.error("Invalid finalize link", e); }
         }
@@ -137,10 +117,12 @@
     }
 
     function openVerifyModal() {
+        isVerificationModalOpen = true;
         (document.getElementById('verify_claim_modal') as HTMLDialogElement)?.showModal();
     }
 
     function closeVerifyModal() {
+        isVerificationModalOpen = false;
         pendingVerificationId = null;
         generatedAuthKey = null;
         (document.getElementById('verify_claim_modal') as HTMLDialogElement)?.close();
@@ -156,8 +138,6 @@
     
     function closeClaimModal() {
         pendingClaimRequest = null;
-        generatedClaimCode = null;
-        authKeyInput = '';
         (document.getElementById('claim_request_modal') as HTMLDialogElement)?.close();
     }
 
@@ -167,89 +147,42 @@
         const item = inventory.find(i => i.id === selectedItemId);
         if (!item) return;
 
-        const uniqueId = crypto.randomUUID();
-
-        // Save locally as pending
-        await db.sentChallenge.add({
-            uuid: uniqueId,
-            player_id: currentUser.id!,
-            title: item.title,
-            description: item.description,
-            points: item.points,
-            message: customMessage,
-            created_at: new Date(),
-            status: 'pending'
-        });
-
-        // Delete from inventory
-        await db.inventory.delete(item.id!);
-
-        const payload = {
-            type: 'theo-challenge-req-v1',
-            id: uniqueId,
-            from: currentUser.nickname,
-            fromScore: currentUser.score, // ADDED: Send my score
-            item: {
-                title: item.title,
-                points: item.points,
-                description: item.description
-            },
-            message: customMessage
-        };
-
-        try {
-            const jsonPayload = JSON.stringify(payload);
-            const base64 = btoa(jsonPayload);
-            generatedShareLink = `${window.location.origin}?challenge=${base64}`;
-        } catch (err) {
-            console.error(err);
+        const link = await createChallengeLink(currentUser, item, customMessage);
+        if (link) {
+            generatedShareLink = link;
         }
     }
     
-    // STEP 1: Receiver opens link -> Sees "Request Claim" -> Now "Accept/Decline"
     async function handleIncomingShare(data: any) {
-        if (data.type === 'theo-challenge-req-v1' && currentUser?.id) {
-            if (data.from === currentUser.nickname) {
-                alert($_('store.accept_own_error'));
-                return;
+        if (!currentUser) return;
+        try {
+            const validated = await processIncomingChallengeLink(data, currentUser);
+            if (validated) {
+                pendingClaimRequest = validated;
+                (document.getElementById('claim_request_modal') as HTMLDialogElement)?.showModal();
             }
-
-            // Check if already accepted
-            const existing = await db.challengue.where('uuid').equals(data.id).first();
-            if (existing) {
-                alert($_('store.already_accepted_error'));
-                return;
+        } catch (e: any) {
+            if (e.message && (e.message.startsWith('store.') || e.message.startsWith('home.'))) {
+                alert($_(e.message));
+            } else {
+                console.error(e);
             }
-
-            // Show Claim Request Modal
-            // If new friend or updated score
-            if (data.fromScore !== undefined) {
-                 await updatePeerScore(data.from, data.fromScore);
-            }
-
-            pendingClaimRequest = data;
-            // No verification link generation yet. Wait for Accept.
-            
-            (document.getElementById('claim_request_modal') as HTMLDialogElement)?.showModal();
-        } 
+        }
     }
 
     async function acceptChallenge() {
         if (!pendingClaimRequest || !currentUser?.id) return;
         
         try {
-            // Add as active challenge locally
              await db.challengue.add({
                 uuid: pendingClaimRequest.id,
-                player_id: currentUser.id,
+                player_id: currentUser.id!,
                 title: pendingClaimRequest.item.title,
                 description: pendingClaimRequest.item.description,
                 points: pendingClaimRequest.item.points,
-                reward: pendingClaimRequest.item.points, // Assuming reward = points for p2p
+                reward: pendingClaimRequest.item.points,
                 from_player: pendingClaimRequest.from,
                 message: pendingClaimRequest.message,
-                // created_at? no field in model but useful.
-                // It is NOT completed yet.
             });
             
             closeClaimModal();
@@ -262,14 +195,11 @@
 
     async function declineChallenge() {
         if (!currentUser?.id) return;
-        
         try {
-            // Penalty
             const newScore = Math.max(0, (currentUser.score || 0) - 1);
             await db.player.update(currentUser.id, {
                 score: newScore
             });
-            
             closeClaimModal();
         } catch (e) {
             console.error('Failed to decline', e);
@@ -279,20 +209,12 @@
     async function generateVerificationLinkForActive(challenge: Challengue) {
          if (!currentUser) return;
          
-         const claimPayload = {
-            type: 'theo-claim-v1',
-            cid: challenge.uuid,
-            claimer: currentUser.nickname,
-            claimerScore: currentUser.score || 0
-        };
-        const claimB64 = btoa(JSON.stringify(claimPayload));
-        const link = `${window.location.origin}?verify_claim=${claimB64}`;
-        
-        // Use share API directly or fallback copy
+         const link = await generateVerificationLink(challenge, currentUser);
+         
         if (navigator.share) {
              navigator.share({
-                 title: $_('home.share_verify_title'),
-                 text: $_('home.share_verify_text'),
+                 title: $_(I18N.home.share_verify_title),
+                 text: $_(I18N.home.share_verify_text),
                  url: link
              });
         } else {
@@ -301,186 +223,44 @@
         }
     }
 
-    // STEP 2: Sender verifies Claim Code -> Generates Auth Key
     async function verifyClaimCode() {
-        try {
-            let code = pendingVerificationId || '';
-            // Handle if user pasted full URL
-            if (code.includes('verify_claim=')) {
-                 code = code.split('verify_claim=')[1];
-            }
+        if (!currentUser || !pendingVerificationId) return;
 
-            const json = atob(code);
-            const data = JSON.parse(json);
+        const result = await serviceVerifyClaim(currentUser, pendingVerificationId);
 
-            if (data.type !== 'theo-claim-v1') throw new Error($_('store.invalid_code_error'));
-
-            // If verification starts, update the claimee score
-            if (data.claimerScore !== undefined) {
-                 await updatePeerScore(data.claimer, data.claimerScore);
-            }
-
-            // Check if challenge exists and is pending
-            const challenge = await db.sentChallenge.where('uuid').equals(data.cid).first();
-            
-            if (!challenge) {
-                 alert($_('store.challenge_not_found_error'));
-                 return;
-            }
-
-            if (challenge.status !== 'pending') {
-                alert($_('store.already_claimed_error', { values: { user: challenge.claimed_by || 'someone' } }));
-                return;
-            }
-            
-            // Mark as accepted
-            await db.sentChallenge.update(challenge.id!, {
-                status: 'accepted',
-                claimed_by: data.claimer
-            });
-
-            // Generate Finalize Link: Includes challenge details so receiver can add it
-            const authPayload = {
-                type: 'theo-auth-v1',
-                cid: data.cid,
-                valid: true,
-                senderScore: currentUser.score || 0,
-                item: {
-                    title: challenge.title,
-                    description: challenge.description,
-                    points: challenge.points
-                },
-                message: challenge.message,
-                from: currentUser.nickname
-            };
-
-            const confirmB64 = btoa(JSON.stringify(authPayload));
-            generatedAuthKey = `${window.location.origin}?finalize=${confirmB64}`;
-
-        } catch (e) {
-            alert("Invalid Claim Code!");
-            console.error(e);
+        if (result.success && result.authRawLink) {
+            generatedAuthKey = result.authRawLink;
+        } else {
+            alert("Verification Failed: " + (result.error ? $_('store.' + result.error + '_error') : "Unknown Error"));
         }
     }
 
-    // STEP 3: Receiver enters Auth Key -> Adds Challenge
-    async function finalizeClaim(directPayload?: any) {
-        let authData = directPayload;
-
-        // If manual input (fallback)
-        if (!authData && authKeyInput) {
-             try {
-                 // Clean up the input in case they pasted the whole URL
-                 let code = authKeyInput.trim();
-                 if (code.includes('finalize=')) {
-                     code = code.split('finalize=')[1];
-                 }
-                authData = JSON.parse(atob(code));
-            } catch {
-                alert("Invalid Key format");
-                return;
-            }
-        }
-
-        if (!authData) return;
+    async function finalizeClaim(authData: any) {
+        if (!authData || !currentUser) return;
 
         try {
-             // Validate
-             if (authData.type !== 'theo-auth-v1' || !authData.valid) {
-                 alert("Invalid Authorization Key!");
-                 return;
-             }
-             
-             // In ACTIVE challenges flow, the challenge is already in DB but not marked complete.
-             // We need to find the challenge by UUID.
-             const existing = await db.challengue.where('uuid').equals(authData.cid).first();
-             
-             if (!existing) {
-                 // If not found, it might be the old flow (adding from scratch). 
-                 // But in new flow, we accepted it first.
-                 // Let's support both just in case, or enforce "Active" state.
-                 // For now, let's assume it IS in active list because we accepted it.
-                 alert($_('store.challenge_not_found_error'));
-                 return;
-             }
+             const result = await finalizeChallengeClaim(authData, currentUser);
 
-             if (existing.completed_at) {
-                 alert($_('store.already_achievement_error'));
-                 return;
-             }
-
-             if (authData.senderScore !== undefined && authData.from) {
-                 await updatePeerScore(authData.from, authData.senderScore);
-             }
-
-             // SUCCESS! Mark as complete
-             // Streak Logic
-             const currentStreak = currentUser!.streak || 0;
-             const isStreakBonus = currentStreak >= 3;
-             const multiplier = isStreakBonus ? 2 : 1;
-             
-             await db.challengue.update(existing.id!, {
-                completed_at: new Date()
-             });
-
-             await db.player.update(currentUser!.id!, {
-                 score: (currentUser!.score || 0) + (existing.points * multiplier),
-                 coins: (currentUser!.coins || 0) + existing.reward,
-                 streak: currentStreak + 1
-             });
-
-            alert($_('store.validated_success'));
-            if (isStreakBonus && multiplier > 1) {
-                 alert($_('home.streak_bonus_applied', { values: { multiplier } }));
+            alert($_(I18N.store.validated_success));
+            if (result.isStreakBonus && result.multiplier > 1) {
+                 alert($_(I18N.home.streak_bonus_applied, { values: { multiplier: result.multiplier } }));
              }
 
             closeClaimModal();
             window.location.reload(); 
 
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            alert("Failed to finalize claim");
+            const msg = e.message?.startsWith('store.') ? $_(e.message) : "Failed to finalize claim";
+            alert(msg);
         }
-    }
-
-    async function completeActiveChallenge(challenge: Challengue) {
-        if (!currentUser?.id || !challenge.id) return;
-        
-         if (!confirm(`Did you complete "${challenge.title}"?`)) return;
-
-         await db.transaction('rw', db.player, db.challengue, async () => {
-             // Streak Logic
-             const currentStreak = currentUser.streak || 0;
-             const isStreakBonus = currentStreak >= 3;
-             const multiplier = isStreakBonus ? 2 : 1;
-             
-             // Check if we should reset streak?
-             // Since this is success, we strictly increment.
-             // Reset logic would ideally be: if "rejected" or "failed" (not impl here yet).
-             
-             const pointsEarned = challenge.points * multiplier;
-
-             await db.challengue.update(challenge.id!, {
-                 completed_at: new Date()
-             });
-             
-             await db.player.update(currentUser.id!, {
-                 score: (currentUser.score || 0) + pointsEarned,
-                 coins: (currentUser.coins || 0) + challenge.reward,
-                 streak: currentStreak + 1
-             });
-             
-             if (isStreakBonus && multiplier > 1) {
-                 alert($_('home.streak_bonus_applied', { values: { multiplier } }));
-             }
-         });
     }
 </script>
 
 <div class="space-y-6 relative">
     <div class="navbar bg-base-100/50 backdrop-blur-md rounded-2xl shadow-sm sticky top-2 z-10">
         <div class="flex-1">
-            <a class="btn btn-ghost text-xl font-bold tracking-tight">
+            <a href="/" class="btn btn-ghost text-xl font-bold tracking-tight">
                 Theo <span class="text-primary">Challengers</span>
             </a>
         </div>
@@ -497,11 +277,10 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="card bg-base-100 shadow-xl border border-base-200">
             <div class="card-body">
-                <h2 class="card-title">{$_('home.welcome', { values: { user: currentUser?.nickname || 'Player' } })}</h2>
-                <p>{$_('home.ready_msg')}</p>
+                <h2 class="card-title">{$_(I18N.home.welcome, { values: { user: currentUser?.nickname || 'Player' } })}</h2>
+                <p>{$_(I18N.home.ready_msg)}</p>
                 <div class="card-actions justify-end gap-2">
-                     <!-- Button to enter confirmation link manually if user doesn't click link -->
-                    <button class="btn btn-primary btn-sm" onclick={openSendModal}>{$_('home.send_challenge')}</button>
+                    <button class="btn btn-primary btn-sm" onclick={openSendModal}>{$_(I18N.home.send_challenge)}</button>
                 </div>
             </div>
         </div>
@@ -512,9 +291,9 @@
                     <div class="stat-figure text-secondary">
                         <span class="text-2xl">🏆</span>
                     </div>
-                    <div class="stat-title text-xs">{$_('home.score')}</div>
+                    <div class="stat-title text-xs">{$_(I18N.home.score)}</div>
                     <div class="stat-value text-secondary text-2xl">{currentUser?.score || 0}</div>
-                    <div class="stat-desc">{$_('home.points')}</div>
+                    <div class="stat-desc">{$_(I18N.home.points)}</div>
                 </div>
             </div>
 
@@ -523,20 +302,20 @@
                     <div class="stat-figure text-primary">
                         <span class="text-2xl">🪙</span>
                     </div>
-                    <div class="stat-title text-xs">{$_('home.coins')}</div>
+                    <div class="stat-title text-xs">{$_(I18N.home.coins)}</div>
                     <div class="stat-value text-primary text-2xl">{currentUser?.coins || 0}</div>
-                    <div class="stat-desc">{$_('home.available')}</div>
+                    <div class="stat-desc">{$_(I18N.home.available)}</div>
                 </div>
             </div>
         </div>
     </div>
 
      <!-- Active Challenges List -->
-    <div class="divider text-base-content/50 font-medium">{$_('home.active_challenges')}</div>
+    <div class="divider text-base-content/50 font-medium">{$_(I18N.home.active_challenges)}</div>
     
     {#if activeChallenges.length === 0}
         <div class="text-center py-8 text-base-content/50 text-sm bg-base-100 rounded-box border border-dashed border-base-300">
-            <p>{$_('home.no_active_challenges')}</p>
+            <p>{$_(I18N.home.no_active_challenges)}</p>
         </div>
     {:else}
         <div class="grid grid-cols-1 gap-4">
@@ -580,29 +359,29 @@
             </form>
             <h3 class="font-bold text-lg text-center">
                 {#if generatedShareLink}
-                    {$_('home.challenge_sent_title', {default: "Challenge Created!"})}
+                    {$_(I18N.home.challenge_sent_title)}
                 {:else}
-                    {$_('home.select_challenge_title', {default: "Select a Challenge"})}
+                    {$_(I18N.home.select_challenge_title)}
                 {/if}
             </h3>
             
             {#if !generatedShareLink}
-                <p class="py-4 text-sm text-center text-base-content/70">{$_('home.select_challenge_subtitle', {default: "Pick an item from your inventory to generate a Challenge Link."})}</p>
+                <p class="py-4 text-sm text-center text-base-content/70">{$_(I18N.home.select_challenge_subtitle)}</p>
                 <div class="form-control w-full gap-4">
                     <!-- Select Item -->
                     <div>
                         <label class="label">
-                            <span class="label-text">{$_('home.select_challenge_title')}</span>
+                            <span class="label-text">{$_(I18N.home.select_challenge_title)}</span>
                         </label>
                         <select class="select select-bordered w-full" bind:value={selectedItemId}>
-                            <option disabled selected value={null}>{$_('home.select_challenge_title')}</option>
+                            <option disabled selected value={null}>{$_(I18N.home.select_challenge_title)}</option>
                             {#each inventory as item}
                                 <option value={item.id}>{item.icon || '📜'} {$_(item.title)} ({item.points} pts)</option>
                             {/each}
                         </select>
                         {#if inventory.length === 0}
                             <div class="label">
-                                <span class="label-text-alt text-warning">{$_('inventory.empty')}</span>
+                                <span class="label-text-alt text-warning">{$_(I18N.inventory.empty)}</span>
                             </div>
                         {/if}
                     </div>
@@ -610,7 +389,7 @@
                     <!-- Custom Message -->
                     <div>
                         <label class="label">
-                            <span class="label-text">{$_('home.custom_message')}</span>
+                            <span class="label-text">{$_(I18N.home.custom_message)}</span>
                         </label>
                         <textarea 
                             class="textarea textarea-bordered h-24 w-full" 
@@ -625,14 +404,14 @@
                         class="btn btn-primary w-full"
                         onclick={generateChallengeLink}
                         disabled={!selectedItemId}>
-                        {$_('home.create_link')}
+                        {$_(I18N.home.create_link)}
                     </button>
                 </div>
             {:else}
                 <div class="flex flex-col items-center justify-center py-6 gap-4">
                     
                     <div class="w-full">
-                        <p class="text-sm text-center mb-2">{$_('home.share_link')}</p>
+                        <p class="text-sm text-center mb-2">{$_(I18N.home.share_link)}</p>
                         <div class="join w-full">
                             <input type="text" value={generatedShareLink} readonly class="input input-bordered input-sm join-item w-full text-xs" />
                             <button class="btn btn-sm btn-primary join-item" onclick={() => {
@@ -643,7 +422,7 @@
                                 {#if copiedState === 'challenge-link'}
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
                                 {:else}
-                                    {$_('home.copy_btn')}
+                                    {$_(I18N.home.copy_btn)}
                                 {/if}
                             </button>
                         </div>
@@ -651,8 +430,8 @@
                              if (navigator.share && generatedShareLink) {
                                  const itemTitle = inventory.find(i => i.id === selectedItemId)?.title || selectedItemId;
                                  navigator.share({
-                                     title: $_('home.share_challenge_title'),
-                                     text: $_('home.share_challenge_text', { values: { item: $_(itemTitle) } }),
+                                     title: $_(I18N.home.share_challenge_title),
+                                     text: $_(I18N.home.share_challenge_text, { values: { item: $_(itemTitle) } }),
                                      url: generatedShareLink
                                  });
                              } else if (generatedShareLink) {
@@ -660,16 +439,17 @@
                              }
                          }}>
                             {#if copiedState === 'challenge-share-fallback'}
-                                {$_('home.link_copied')} ✅
+                                {$_(I18N.home.link_copied)} ✅
                             {:else}
-                                {$_('home.share_via_app')} 🔗
+                                {$_(I18N.home.share_via_app)} 🔗
                             {/if}
                          </button>
                     </div>
 
                     <button class="btn btn-ghost btn-xs mt-4" onclick={() => {
                         generatedShareLink = null;
-                    }}>{$_('home.create_another_link', {default: "Create Another"})}</button>
+                        selectedItemId = null;
+                    }}>{$_(I18N.home.create_another_link)}</button>
                 </div>
                  
             {/if}
@@ -682,11 +462,11 @@
     <!-- RECEIVER: Claim Request Modal (Accept/Decline) -->
     <dialog id="claim_request_modal" class="modal modal-bottom sm:modal-middle">
         <div class="modal-box">
-             <h3 class="font-bold text-lg text-center">{$_('store.challenge_request_title')}</h3>
+             <h3 class="font-bold text-lg text-center">{$_(I18N.store.challenge_request_title)}</h3>
              
              {#if pendingClaimRequest}
                 <div class="py-4">
-                    <p class="text-sm text-center">{@html $_('store.requesting_from', { values: { user: pendingClaimRequest.from } })}</p>
+                    <p class="text-sm text-center">{@html $_(I18N.store.requesting_from, { values: { user: pendingClaimRequest.from } })}</p>
                     
                     <div class="card bg-base-200 p-3 mt-4 mb-6 shadow-inner">
                          <h4 class="font-bold text-center text-lg">{$_(pendingClaimRequest.item.title)}</h4>
@@ -702,10 +482,10 @@
 
                     <div class="grid grid-cols-2 gap-4">
                         <button class="btn btn-error btn-outline" onclick={declineChallenge}>
-                            {$_('store.decline_challenge')}
+                            {$_(I18N.store.decline_challenge)}
                         </button>
                         <button class="btn btn-success" onclick={acceptChallenge}>
-                            {$_('store.accept_challenge')}
+                            {$_(I18N.store.accept_challenge)}
                         </button>
                     </div>
                 </div>
@@ -722,39 +502,39 @@
             <form method="dialog">
                  <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick={closeVerifyModal}>✕</button>
             </form>
-            <h3 class="font-bold text-lg text-center">{$_('store.verify_claim_title')}</h3>
-            <p class="text-xs text-center mt-1 text-base-content/70">{$_('store.verify_claim_subtitle')}</p>
+            <h3 class="font-bold text-lg text-center">{$_(I18N.store.verify_claim_title)}</h3>
+            <p class="text-xs text-center mt-1 text-base-content/70">{$_(I18N.store.verify_claim_subtitle)}</p>
 
             <div class="py-4">
                 {#if !generatedAuthKey}
                     <div class="form-control w-full mt-4">
-                        <p class="text-xs text-center mb-2">{$_('store.wait_friend_verification')}</p>
+                        <p class="text-xs text-center mb-2">{$_(I18N.store.wait_friend_verification)}</p>
                         <textarea 
                             class="textarea textarea-bordered h-24 w-full text-xs" 
-                            placeholder={$_('store.paste_claim_code')}
+                            placeholder={$_(I18N.store.paste_claim_code)}
                             bind:value={pendingVerificationId}
                         ></textarea>
                     </div>
 
                     <div class="modal-action">
                         <button class="btn btn-primary w-full" onclick={verifyClaimCode} disabled={!pendingVerificationId}>
-                            {$_('store.verify_confirm_btn')}
+                            {$_(I18N.store.verify_confirm_btn)}
                         </button>
                     </div>
                 {:else}
                     <div class="flex flex-col items-center justify-center py-4 gap-4">
                          <div class="alert alert-success text-xs shadow-md">
-                            <span>{$_('home.challenge_accepted')}</span>
+                            <span>{$_(I18N.home.challenge_accepted)}</span>
                         </div>
 
                          <div class="w-full">
-                            <p class="text-sm text-center mb-2">{@html $_('home.send_confirm_link_back')}</p>
+                            <p class="text-sm text-center mb-2">{@html $_(I18N.home.send_confirm_link_back)}</p>
                             
                             <button class="btn btn-primary w-full" onclick={() => {
                                 if (navigator.share && generatedAuthKey) {
                                     navigator.share({
-                                        title: $_('home.share_confirmed_title'),
-                                        text: $_('home.confirmed_msg'),
+                                        title: $_(I18N.home.share_confirmed_title),
+                                        text: $_(I18N.home.confirmed_msg),
                                         url: generatedAuthKey
                                     });
                                 } else if (generatedAuthKey) {
@@ -762,9 +542,9 @@
                                 }
                             }}>
                                 {#if copiedState === 'confirm-link'}
-                                    {$_('home.link_copied')} ✅
+                                    {$_(I18N.home.link_copied)} ✅
                                 {:else}
-                                    {$_('store.share_confirmation_link')}
+                                    {$_(I18N.store.share_confirmation_link)}
                                 {/if}
                             </button>
                         </div>
@@ -775,7 +555,7 @@
             
         </div>
         <form method="dialog" class="modal-backdrop">
-             <button onclick={closeVerifyModal}>{$_('common.close')}</button>
+             <button onclick={closeVerifyModal}>{$_(I18N.common.close)}</button>
         </form>
     </dialog>
-    </div>
+</div>

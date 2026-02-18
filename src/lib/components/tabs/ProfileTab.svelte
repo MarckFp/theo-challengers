@@ -1,27 +1,26 @@
 <script lang="ts">
     import { db } from '$lib/db';
-    import { liveQuery } from 'dexie';
     import { exportDB, importDB } from 'dexie-export-import';
     import { onMount } from 'svelte';
     import { _, locale } from 'svelte-i18n';
+    import { useUser } from '$lib/stores/user.svelte';
+    import { I18N } from '$lib/i18n-keys';
 
-    let players = $state<any[]>([]); 
+    const userStore = useUser();
+    let player = $derived(userStore.value);
     
     // Level Logic
-    let player = $derived(players.length > 0 ? players[0] : null);
-    
     let levelInfo = $derived.by(() => {
         const score = player?.score || 0;
-        if (score < 100) return { titleKey: 'novice', min: 0, max: 100, level: 1 };
-        if (score < 500) return { titleKey: 'risk_taker', min: 100, max: 500, level: 2 };
-        if (score < 1000) return { titleKey: 'daredevil', min: 500, max: 1000, level: 3 };
-        return { titleKey: 'legend', min: 1000, max: 10000, level: 4 };
+        if (score < 100) return { titleKey: 'novice' as const, min: 0, max: 100, level: 1 };
+        if (score < 500) return { titleKey: 'risk_taker' as const, min: 100, max: 500, level: 2 };
+        if (score < 1000) return { titleKey: 'daredevil' as const, min: 500, max: 1000, level: 3 };
+        return { titleKey: 'legend' as const, min: 1000, max: 10000, level: 4 };
     });
 
     let currentProgress = $derived.by(() => {
         const score = player?.score || 0;
         if (levelInfo.level >= 4) return 100;
-        // Example: score 150. min 100, max 500. progress = (150-100) / (500-100) = 50 / 400 = 12.5%
         return Math.min(100, Math.max(0, ((score - levelInfo.min) / (levelInfo.max - levelInfo.min)) * 100));
     });
 
@@ -36,7 +35,7 @@
         "lofi", "pastel", "fantasy", "wireframe", "black", "luxury", "dracula", 
         "cmyk", "autumn", "business", "acid", "lemonade", "night", "coffee", "winter"
     ];
-    let currentTheme = $state(''); // Initialize empty to wait for mount
+    let currentTheme = $state('');
     let currentLang = $state('en');
 
     $effect(() => {
@@ -51,44 +50,33 @@
     });
 
     $effect(() => {
-        const subscription = liveQuery(() => db.player.toArray()).subscribe(result => {
-            players = result;
-            if (result.length > 0 && !isEditingNickname) {
-                newNickname = result[0].nickname;
-            }
-        });
-        return () => subscription.unsubscribe();
+        if (player && !isEditingNickname) {
+            newNickname = player.nickname;
+        }
     });
 
     onMount(() => {
-        // Read directly from DOM if available, or localStorage
         const savedTheme = localStorage.getItem('theme') || document.documentElement.getAttribute('data-theme') || 'dark';
         currentTheme = savedTheme;
     });
 
-    // Nickname Logic
     async function handleUpdateNickname() {
-        if (!newNickname.trim() || players.length === 0) return;
-        
+        if (!newNickname.trim() || !player?.id) return;
         try {
-            const player = players[0];
-            if (player.id) {
-                await db.player.update(player.id, { nickname: newNickname.trim() });
-                isEditingNickname = false;
-            }
+            await db.player.update(player.id, { nickname: newNickname.trim() });
+            isEditingNickname = false;
         } catch (error) {
             console.error('Failed to update nickname:', error);
         }
     }
 
     function cancelEditNickname() {
-        if (players.length > 0) {
-            newNickname = players[0].nickname;
+        if (player) {
+            newNickname = player.nickname;
         }
         isEditingNickname = false;
     }
 
-    // Export/Import Logic
     async function handleExportData() {
         try {
             const blob = await exportDB(db);
@@ -119,7 +107,6 @@
         }
     }
 
-    // Theme Logic
     function handleThemeChange() {
         if (currentTheme) {
             document.documentElement.setAttribute('data-theme', currentTheme);
@@ -132,7 +119,6 @@
         localStorage.setItem('locale', currentLang);
     }
 
-    // Delete Account Logic
     let isDeleteModalOpen = $state(false);
 
     async function handleDeleteAccount() {
@@ -152,7 +138,7 @@
         <div class="avatar placeholder mb-4 indicator">
             <span class="indicator-item badge badge-secondary font-bold shadow-md">Lvl {levelInfo.level}</span> 
             <div class="bg-primary text-primary-content rounded-full w-24 shadow-xl ring ring-primary ring-offset-base-100 ring-offset-2 flex items-center justify-center">
-                 <span class="text-4xl font-bold">{(players[0]?.nickname || 'P').charAt(0).toUpperCase()}</span>
+                 <span class="text-4xl font-bold">{(player?.nickname || 'P').charAt(0).toUpperCase()}</span>
             </div>
         </div>
         
@@ -177,7 +163,7 @@
             </div>
         {:else}
             <div class="flex items-center gap-2 group cursor-pointer" onclick={() => isEditingNickname = true}>
-                <h2 class="text-3xl font-bold group-hover:text-primary transition-colors">{players[0]?.nickname || 'Unknown'}</h2>
+                <h2 class="text-3xl font-bold group-hover:text-primary transition-colors">{player?.nickname || 'Unknown'}</h2>
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 opacity-50 group-hover:opacity-100 transition-opacity">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
                 </svg>
@@ -186,7 +172,7 @@
 
         <div class="flex flex-col items-center mt-2 w-full max-w-xs px-8">
             <span class="text-sm font-bold uppercase tracking-widest text-secondary badge badge-ghost mb-2">
-                {$_(`levels.${levelInfo.titleKey}`)}
+                {$_(I18N.levels[levelInfo.titleKey])}
             </span>
             <div class="w-full flex items-center gap-2 text-xs font-mono opacity-60 mb-1">
                  <span>{player?.score || 0} pts</span>
@@ -205,7 +191,7 @@
         <!-- Language Selector -->
         <div>
             <span class="label-text font-medium flex items-center gap-2 mb-2 px-1">
-                🌎 {$_('profile.language')}
+                🌎 {$_(I18N.profile.language)}
             </span>
              <select class="select select-bordered w-full" bind:value={currentLang} onchange={handleLangChange}>
                 <option value="en">English</option>
@@ -222,7 +208,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4.098 19.902a3.75 3.75 0 0 0 5.304 0l6.401-6.402M6.75 21A3.75 3.75 0 0 1 3 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 0 0 3.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008Z" />
                 </svg>
-                {$_('profile.theme')}
+                {$_(I18N.profile.theme)}
             </span>
             <select class="select select-bordered w-full" bind:value={currentTheme} onchange={handleThemeChange}>
                 <option value="" disabled>Select Theme</option>
@@ -239,7 +225,7 @@
              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-1">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
             </svg>
-            {$_('profile.export_data')}
+            {$_(I18N.profile.export_data)}
         </button>
 
         <!-- Import Data -->
@@ -247,7 +233,7 @@
              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-1">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 10.5 12 15m0 0 4.5-4.5M12 15V3" />
             </svg>
-            {$_('profile.import_data')}
+            {$_(I18N.profile.import_data)}
             <input type="file" accept=".json" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange={handleImportData} />
         </button>
 
@@ -258,22 +244,22 @@
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-1">
                   <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
             </svg>
-            {$_('profile.reset_data')}
+            {$_(I18N.profile.reset_data)}
         </button>
     </div>
     
     <!-- Delete Confirmation Modal -->
     <dialog class="modal modal-bottom sm:modal-middle" open={isDeleteModalOpen}>
         <div class="modal-box">
-            <h3 class="font-bold text-lg text-error">{$_('profile.danger_zone')}</h3>
-            <p class="py-4">{$_('profile.delete_confirm')}</p>
+            <h3 class="font-bold text-lg text-error">{$_(I18N.profile.danger_zone)}</h3>
+            <p class="py-4">{$_(I18N.profile.delete_confirm)}</p>
             <div class="modal-action">
-                <button class="btn" onclick={() => isDeleteModalOpen = false}>{$_('common.cancel')}</button>
-                <button class="btn btn-error" onclick={handleDeleteAccount}>{$_('profile.delete_btn')}</button>
+                <button class="btn" onclick={() => isDeleteModalOpen = false}>{$_(I18N.common.cancel)}</button>
+                <button class="btn btn-error" onclick={handleDeleteAccount}>{$_(I18N.profile.delete_btn)}</button>
             </div>
         </div>
         <form method="dialog" class="modal-backdrop">
-            <button onclick={() => isDeleteModalOpen = false}>{$_('common.close')}</button>
+            <button onclick={() => isDeleteModalOpen = false}>{$_(I18N.common.close)}</button>
         </form>
     </dialog>
 </div>

@@ -4,8 +4,12 @@
     import type { Player } from '$lib/models/player';
     import type { Inventory } from '$lib/models/inventory';
     import { _ } from 'svelte-i18n';
+    import { useUser } from '$lib/stores/user.svelte';
+    import { I18N } from '$lib/i18n-keys';
 
-    let players = $state<Player[]>([]);
+    const userStore = useUser();
+    let player = $derived(userStore.value);
+    
     let inventoryCount = $state(0);
     let purchasingItem = $state<string | null>(null);
     let inventoryItems = $state<Inventory[]>([]);
@@ -23,19 +27,11 @@
         isViewModalOpen = true;
     }
 
-    // Subscribe to player data
-    $effect(() => {
-        const sub = liveQuery(() => db.player.toArray()).subscribe(p => {
-            players = p;
-        });
-        return () => sub.unsubscribe();
-    });
-
     // Subscribe to inventory items
     $effect(() => {
-        if (players.length === 0 || !players[0].id) return;
+        if (!player?.id) return;
         const sub = liveQuery(() => 
-            db.inventory.where('player_id').equals(players[0].id!).toArray()
+            db.inventory.where('player_id').equals(player!.id!).toArray()
         ).subscribe(items => {
             inventoryItems = items;
             inventoryCount = items.length;
@@ -43,9 +39,9 @@
         return () => sub.unsubscribe();
     });
 
-    let player = $derived(players[0]);
     let coins = $derived(player?.coins ?? 0);
-    let shopItems = $derived(player?.shopItems ?? []);
+    // Ensure all shop items are correctly structured and if string, assume keys
+    let shopItems = $derived(player?.shopItems || []);
 
     // Daily Shop Logic
     $effect(() => {
@@ -68,22 +64,6 @@
             const shuffled = [...allChallenges].sort(() => 0.5 - Math.random());
             const newItemsRaw = shuffled.slice(0, 4);
 
-            // Check if items are already in inventory (for daily refresh)
-            // Note: During daily refresh, we might not have inventoryItems populated yet if this runs on mount immediately
-            // But we can check db directly if needed, or rely on the UI to disable them later.
-            // However, store items are persisted in player object. 
-            // Better to let them be 'fresh' but when rendered, we check if they are purchased.
-            // Actually, the UI logic {item.purchased} relies on the property in the item object.
-            // So we should probably check inventory here.
-            
-            // To keep it simple for daily refresh, we just store raw items.
-            // The UI should ideally check against inventory for 'disabled' state properly, 
-            // but currently it checks `item.purchased` which is a property WE set.
-            
-            // Let's stick to the current pattern: we set purchased: true if they buy it.
-            // For refresh, if they already own it, we should probably set purchased: true immediately so they can't buy it again.
-            
-            // Re-fetching inventory to be sure
             const currentInventory = await db.inventory.where('player_id').equals(p.id!).toArray();
             
             const newItems = newItemsRaw.map((item: any) => {
@@ -104,7 +84,6 @@
 
     function initiateRefresh() {
         if (coins < 3) {
-            // alert($_('store.refresh_not_enough')); // Using UI alert might be better but simple alert works
             return; 
         }
         isRefreshConfirmOpen = true;
@@ -147,11 +126,11 @@
     function initiateBuy(item: any) {
         if (!player || !player.id) return;
         if (coins < item.cost) {
-            alert($_('store.not_enough_coins'));
+            alert($_(I18N.store.not_enough_coins));
             return;
         }
         if (inventoryCount >= 3) {
-            alert($_('store.inventory_full'));
+            alert($_(I18N.store.inventory_full));
             return;
         }
         itemToBuy = item;
@@ -164,30 +143,25 @@
         const item = itemToBuy;
         isConfirmModalOpen = false;
         
-        // Trigger Animation
         purchasingItem = item.title;
 
         try {
             await db.transaction('rw', db.player, db.inventory, async () => {
-                // Clone the arrays/objects to ensure they are plain JS objects (not Svelte 5 Proxies)
-                const currentShopItems = JSON.parse(JSON.stringify(player.shopItems || []));
+                const currentShopItems = JSON.parse(JSON.stringify(player!.shopItems || []));
                 
-                // Determine new shopItems state with purchased flag
                 const updatedShopItems = currentShopItems.map((i: any) => 
                     (i.title === item.title && i.description === item.description) 
                         ? { ...i, purchased: true } 
                         : i
                 );
 
-                // Deduct coins & update shopItems
-                await db.player.update(player.id!, {
-                    coins: player.coins - item.cost,
+                await db.player.update(player!.id!, {
+                    coins: player!.coins - item.cost,
                     shopItems: updatedShopItems
                 });
 
-                // Add to inventory
                 const inventoryItem: Inventory = {
-                    player_id: player.id!,
+                    player_id: player!.id!,
                     title: item.title,
                     description: item.description,
                     points: item.points,
@@ -215,8 +189,8 @@
 <div class="space-y-6 animate-in fade-in zoom-in duration-300">
     <div class="flex justify-between items-center px-1">
         <div>
-            <h2 class="text-2xl font-bold">{$_('store.title')}</h2>
-            <p class="text-xs text-base-content/60">{$_('store.description')}</p>
+            <h2 class="text-2xl font-bold">{$_(I18N.store.title)}</h2>
+            <p class="text-xs text-base-content/60">{$_(I18N.store.description)}</p>
         </div>
         <div class="badge badge-primary badge-lg gap-2 font-bold shadow-sm">
             <span class="text-yellow-200">🪙</span>
@@ -227,7 +201,7 @@
     {#if !shopItems || shopItems.length === 0}
         <div class="flex flex-col items-center justify-center p-12 text-base-content/50 gap-4">
             <span class="loading loading-spinner loading-md"></span>
-            <p>Loading shop...</p>
+            <p>{$_(I18N.common.loading)}</p>
         </div>
     {:else}
         <div class="grid grid-cols-2 gap-4">
@@ -253,13 +227,13 @@
                                 onclick={(e) => { e.stopPropagation(); initiateBuy(item); }}
                             >
                                 {#if item.purchased}
-                                    <span class="text-xs">{$_('store.purchased')}</span>
+                                    <span class="text-xs">{$_(I18N.store.purchased)}</span>
                                 {:else if inventoryCount >= 3}
-                                    <span class="text-xs">{$_('store.full')}</span>
+                                    <span class="text-xs">{$_(I18N.store.full)}</span>
                                 {:else if coins < item.cost}
-                                    <span class="text-xs">{$_('store.need', { values: { cost: item.cost } })}</span>
+                                    <span class="text-xs">{$_(I18N.store.need, { values: { cost: item.cost } })}</span>
                                 {:else}
-                                    {$_('store.buy')} {item.cost} 🪙
+                                    {$_(I18N.store.buy)} {item.cost} 🪙
                                 {/if}
                             </button>
                         </div>
@@ -272,7 +246,7 @@
     {#if inventoryCount >= 3}
         <div role="alert" class="alert alert-warning py-2 text-sm shadow-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-            <span>{$_('store.inventory_full')}</span>
+            <span>{$_(I18N.store.inventory_full)}</span>
         </div>
     {/if}
 
@@ -285,84 +259,80 @@
             onclick={initiateRefresh}
         >
             <span class="text-xl">🔄</span>
-            {$_('store.refresh_button')}
+            {$_(I18N.store.refresh_button)}
         </button>
     </div>
 
     <!-- Purchase Confirmation Modal -->
     <dialog class="modal modal-bottom sm:modal-middle" open={isConfirmModalOpen}>
         <div class="modal-box">
-             <h3 class="font-bold text-lg">{$_('store.confirm_title')}</h3>
+             <h3 class="font-bold text-lg">{$_(I18N.store.confirm_title)}</h3>
              {#if itemToBuy}
                 <p class="py-4">
-                    {$_('store.buy_confirm', { values: { item: $_(itemToBuy.title), cost: itemToBuy.cost } })}
+                    {$_(I18N.store.buy_confirm, { values: { item: $_(itemToBuy.title), cost: itemToBuy.cost } })}
                 </p>
             {/if}
             <div class="modal-action">
-                <button class="btn" onclick={() => isConfirmModalOpen = false}>{$_('common.cancel')}</button>
-                <button class="btn btn-primary" onclick={confirmBuy}>{$_('store.buy')}</button>
+                <button class="btn" onclick={() => isConfirmModalOpen = false}>{$_(I18N.common.cancel)}</button>
+                <button class="btn btn-primary" onclick={confirmBuy}>{$_(I18N.common.confirm)}</button>
             </div>
         </div>
         <form method="dialog" class="modal-backdrop">
-            <button onclick={() => isConfirmModalOpen = false}>close</button>
+            <button onclick={() => isConfirmModalOpen = false}>{$_(I18N.common.close)}</button>
         </form>
     </dialog>
-
-    <!-- Refresh Confirmation Modal -->
-    <dialog class="modal modal-bottom sm:modal-middle" open={isRefreshConfirmOpen}>
-        <div class="modal-box">
-             <h3 class="font-bold text-lg">{$_('store.refresh_button')}</h3>
-             <p class="py-4">
-                {$_('store.refresh_store_confirm')}
-             </p>
-            <div class="modal-action">
-                <button class="btn" onclick={() => isRefreshConfirmOpen = false}>{$_('common.cancel')}</button>
-                <button class="btn btn-secondary" onclick={confirmRefresh}>{$_('store.buy')} 3 🪙</button>
-            </div>
-        </div>
-        <form method="dialog" class="modal-backdrop">
-            <button onclick={() => isRefreshConfirmOpen = false}>{$_('common.close')}</button>
-        </form>
-    </dialog>
-
     <!-- View Item Modal -->
-    <dialog class="modal modal-bottom sm:modal-middle" open={isViewModalOpen}>
+     <dialog class="modal modal-bottom sm:modal-middle" open={isViewModalOpen}>
         <div class="modal-box">
              {#if viewingItem}
                 <div class="flex flex-col items-center gap-4 py-4">
                     <div class="text-8xl drop-shadow-md pb-4">{viewingItem.icon || '🎁'}</div>
                     <h3 class="font-bold text-2xl text-center">{$_(viewingItem.title)}</h3>
-                    <div class="badge badge-lg badge-ghost">{viewingItem.points} 🏆</div>
+                    <div class="badge badge-lg badge-ghost">+{viewingItem.points} 🏆</div>
+                    <div class="badge badge-lg badge-warning font-bold">
+                        {viewingItem.cost} 🪙
+                    </div>
                     <p class="text-center text-lg text-base-content/80">{$_(viewingItem.description)}</p>
                     
                     <div class="divider my-0"></div>
 
-                     <button 
-                        class="btn btn-primary btn-lg w-full font-bold gap-2"
-                        disabled={coins < viewingItem.cost || inventoryCount >= 3 || viewingItem.purchased}
-                        onclick={() => { 
-                            isViewModalOpen = false;
-                            initiateBuy(viewingItem); 
-                        }}
-                    >
-                        {#if viewingItem.purchased}
-                            <span>{$_('store.purchased')}</span>
-                        {:else if inventoryCount >= 3}
-                            <span>{$_('store.full')}</span>
-                        {:else if coins < viewingItem.cost}
-                            <span>{$_('store.need', { values: { cost: viewingItem.cost } })}</span>
-                        {:else}
-                            {$_('store.buy')} {viewingItem.cost} 🪙
-                        {/if}
-                    </button>
-                    <button class="btn btn-ghost w-full mt-2" onclick={() => isViewModalOpen = false}>
-                        {$_('common.cancel')}
-                    </button>
+                    <div class="flex w-full gap-2">
+                        <button class="btn btn-primary flex-1" 
+                                disabled={coins < viewingItem.cost || inventoryCount >= 3 || viewingItem.purchased}
+                                onclick={() => { isViewModalOpen = false; initiateBuy(viewingItem); }}>
+                            {#if viewingItem.purchased}
+                                {$_(I18N.store.purchased)}
+                            {:else if inventoryCount >= 3}
+                                {$_(I18N.store.full)}
+                            {:else if coins < viewingItem.cost}
+                                {$_(I18N.store.need, { values: { cost: viewingItem.cost } })}
+                            {:else}
+                                {$_(I18N.store.buy)}
+                            {/if}
+                        </button>
+                        <button class="btn btn-ghost flex-1" onclick={() => isViewModalOpen = false}>
+                            {$_(I18N.common.cancel)}
+                        </button>
+                    </div>
                 </div>
              {/if}
         </div>
         <form method="dialog" class="modal-backdrop">
-            <button onclick={() => isViewModalOpen = false}>{$_('common.close')}</button>
+            <button onclick={() => isViewModalOpen = false}>{$_(I18N.common.close)}</button>
+        </form>
+    </dialog>
+    <!-- Refresh Confirmation Modal -->
+    <dialog class="modal modal-bottom sm:modal-middle" open={isRefreshConfirmOpen}>
+        <div class="modal-box">
+             <h3 class="font-bold text-lg">{$_(I18N.store.refresh_store_confirm)}</h3>
+             <p class="py-4">{$_(I18N.store.refresh_store_confirm, {values: {cost: 3}})}</p>
+            <div class="modal-action">
+                <button class="btn" onclick={() => isRefreshConfirmOpen = false}>{$_(I18N.common.cancel)}</button>
+                <button class="btn btn-secondary" onclick={confirmRefresh}>{$_(I18N.common.confirm)}</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button onclick={() => isRefreshConfirmOpen = false}>{$_(I18N.common.close)}</button>
         </form>
     </dialog>
 </div>

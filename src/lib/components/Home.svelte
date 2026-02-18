@@ -6,52 +6,50 @@
     import ProfileTab from './tabs/ProfileTab.svelte';
     import { fade } from 'svelte/transition';
     import { db } from '$lib/db';
-    import { liveQuery } from 'dexie';
     import { _ } from 'svelte-i18n';
+    import { useUser } from '$lib/stores/user.svelte';
+    import { I18N } from '$lib/i18n-keys';
 
     type Tab = 'home' | 'leaderboard' | 'store' | 'inventory' | 'profile';
+    
+    const userStore = useUser();
+    let player = $derived(userStore.value);
+    
     let activeTab = $state<Tab>('home');
     let isDailyBonusOpen = $state(false);
-    let currentStreak = $state(0);
+    
+    let currentStreak = $derived(player?.streak || 0);
 
     $effect(() => {
-        const sub = liveQuery(() => db.player.toArray()).subscribe(players => {
-             if (players.length > 0) {
-                 const p = players[0];
-                 currentStreak = p.streak || 0;
-                 const today = new Date().toISOString().split('T')[0];
-                 // If lastDailyBonus is missing or not today
-                 if (p.lastDailyBonus !== today) {
-                     if (!isDailyBonusOpen) {
-                          isDailyBonusOpen = true;
-                     }
-                 } else {
-                     if (isDailyBonusOpen) isDailyBonusOpen = false;
-                 }
-             }
-        });
-        return () => sub.unsubscribe();
+        if (!player) return;
+        const today = new Date().toISOString().split('T')[0];
+        
+        // If bonus not collected today
+        if (player.lastDailyBonus !== today) {
+             if (!isDailyBonusOpen) isDailyBonusOpen = true;
+        } else {
+             if (isDailyBonusOpen) isDailyBonusOpen = false;
+        }
     });
 
     async function collectBonus() {
-        const p = await db.player.toCollection().first();
-        if (p && p.id) {
-             const today = new Date().toISOString().split('T')[0];
-             // Streak Bonus Logic:
-             // If streak >= 3 -> +2 coins
-             // If streak >= 7 -> +3 coins
-             // Else +1 coin
-             
-             let bonusAmount = 1;
-             const s = p.streak || 0;
-             if (s >= 7) bonusAmount = 3;
-             else if (s >= 3) bonusAmount = 2;
+        if (!player || !player.id) return;
 
-             await db.player.update(p.id, {
-                 coins: p.coins + bonusAmount,
-                 lastDailyBonus: today
-             });
-        }
+         const today = new Date().toISOString().split('T')[0];
+         // Streak Bonus Logic:
+         // If streak >= 3 -> +2 coins
+         // If streak >= 7 -> +3 coins
+         // Else +1 coin
+         
+         let bonusAmount = 1;
+         const s = player.streak || 0;
+         if (s >= 7) bonusAmount = 3;
+         else if (s >= 3) bonusAmount = 2;
+
+         await db.player.update(player.id, {
+             coins: (player.coins || 0) + bonusAmount,
+             lastDailyBonus: today
+         });
     }
 
     // Simple icons
@@ -143,26 +141,26 @@
     <!-- Daily Bonus Modal -->
     <dialog class="modal modal-bottom sm:modal-middle" open={isDailyBonusOpen}>
         <div class="modal-box text-center">
-            <h3 class="font-bold text-2xl text-primary">{$_('bonus.title')}</h3>
+            <h3 class="font-bold text-2xl text-primary">{$_(I18N.bonus.title)}</h3>
             <div class="py-6 flex flex-col items-center gap-4">
                  <div class="text-6xl animate-bounce">🪙</div>
-                 <p class="text-lg">{$_('bonus.message')}</p>
+                 <p class="text-lg">{$_(I18N.bonus.message)}</p>
                  
                  {#if currentStreak >= 3}
                     <div class="badge badge-secondary badge-lg gap-2 py-4">
-                        🔥 {$_('bonus.streak_active', { values: { streak: currentStreak } })}
+                        🔥 {$_(I18N.bonus.streak_active, { values: { streak: currentStreak } })}
                     </div>
                  {/if}
 
                  {#if currentStreak >= 7}
-                    <p class="text-sm text-success font-bold">+2 {$_('bonus.extra_coins')}</p>
+                    <p class="text-sm text-success font-bold">+2 {$_(I18N.bonus.extra_coins)}</p>
                  {:else if currentStreak >= 3}
-                    <p class="text-sm text-success font-bold">+1 {$_('bonus.extra_coins')}</p>
+                    <p class="text-sm text-success font-bold">+1 {$_(I18N.bonus.extra_coins)}</p>
                  {/if}
             </div>
             <div class="modal-action justify-center">
                 <button class="btn btn-primary btn-lg w-full" onclick={collectBonus}>
-                    {$_('bonus.collect')} 
+                    {$_(I18N.bonus.collect)} 
                     {#if currentStreak >= 7} 3 🪙
                     {:else if currentStreak >= 3} 2 🪙
                     {:else} 1 🪙
