@@ -478,7 +478,7 @@
 </script>
 
 <div class="space-y-6 relative">
-    <div class="navbar bg-base-100/50 backdrop-blur-md rounded-2xl shadow-sm sticky top-0 z-10">
+    <div class="navbar bg-base-100/50 backdrop-blur-md rounded-2xl shadow-sm sticky top-2 z-10">
         <div class="flex-1">
             <a class="btn btn-ghost text-xl font-bold tracking-tight">
                 Theo <span class="text-primary">Challengers</span>

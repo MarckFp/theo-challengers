@@ -80,23 +80,23 @@
 <div class="bg-base-100 min-h-dvh md:pl-20 relative overflow-x-hidden">
     <div class="container mx-auto max-w-lg min-h-dvh relative">
         {#if activeTab === 'home'}
-            <div in:fade={{ duration: 200, delay: 100 }} out:fade={{ duration: 100 }} class="absolute inset-0 p-4 pb-28 md:pb-4">
+            <div in:fade={{ duration: 200, delay: 100 }} out:fade={{ duration: 100 }} class="absolute inset-0 p-4 pt-12 pb-28 md:pt-4 md:pb-4">
                 <HomeTab />
             </div>
         {:else if activeTab === 'leaderboard'}
-            <div in:fade={{ duration: 200, delay: 100 }} out:fade={{ duration: 100 }} class="absolute inset-0 p-4 pb-28 md:pb-4">
+            <div in:fade={{ duration: 200, delay: 100 }} out:fade={{ duration: 100 }} class="absolute inset-0 p-4 pt-12 pb-28 md:pt-4 md:pb-4">
                 <LeaderboardTab />
             </div>
         {:else if activeTab === 'store'}
-            <div in:fade={{ duration: 200, delay: 100 }} out:fade={{ duration: 100 }} class="absolute inset-0 p-4 pb-28 md:pb-4">
+            <div in:fade={{ duration: 200, delay: 100 }} out:fade={{ duration: 100 }} class="absolute inset-0 p-4 pt-12 pb-28 md:pt-4 md:pb-4">
                 <StoreTab />
             </div>
         {:else if activeTab === 'inventory'}
-            <div in:fade={{ duration: 200, delay: 100 }} out:fade={{ duration: 100 }} class="absolute inset-0 p-4 pb-28 md:pb-4">
+            <div in:fade={{ duration: 200, delay: 100 }} out:fade={{ duration: 100 }} class="absolute inset-0 p-4 pt-12 pb-28 md:pt-4 md:pb-4">
                 <InventoryTab />
             </div>
         {:else if activeTab === 'profile'}
-            <div in:fade={{ duration: 200, delay: 100 }} out:fade={{ duration: 100 }} class="absolute inset-0 p-4 pb-28 md:pb-4">
+            <div in:fade={{ duration: 200, delay: 100 }} out:fade={{ duration: 100 }} class="absolute inset-0 p-4 pt-12 pb-28 md:pt-4 md:pb-4">
                 <ProfileTab />
             </div>
         {/if}
