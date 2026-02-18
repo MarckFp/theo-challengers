@@ -1,0 +1,38 @@
+{
+  "name": "theo-challengers (Bun + Svelte + Tauri)",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "remoteUser": "vscode",
+  "forwardPorts": [5173, 1420],
+  "containerEnv": {
+    "RUST_BACKTRACE": "1"
+  },
+  "runArgs": [
+    "-e",
+    "DISPLAY=${localEnv:DISPLAY}",
+    "-v",
+    "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+  ],
+  "mounts": [
+    "source=theo-challengers-cargo-registry,target=/home/vscode/.cargo/registry,type=volume",
+    "source=theo-challengers-cargo-git,target=/home/vscode/.cargo/git,type=volume"
+  ],
+  "postCreateCommand": "mkdir -p /home/vscode/.cargo/registry /home/vscode/.cargo/git && sudo chown -R vscode:vscode /home/vscode/.cargo && bun install && cargo fetch --manifest-path src-tauri/Cargo.toml",
+  "postStartCommand": "mkdir -p /home/vscode/.cargo/registry /home/vscode/.cargo/git && sudo chown -R vscode:vscode /home/vscode/.cargo",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "svelte.svelte-vscode",
+        "tauri-apps.tauri-vscode",
+        "rust-lang.rust-analyzer",
+        "vadimcn.vscode-lldb"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "rust-analyzer.check.command": "clippy"
+      }
+    }
+  }
+}

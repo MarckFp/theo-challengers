@@ -130,7 +130,15 @@ jobs:
           distribution: 'adopt'
           java-version: '17'
       - uses: android-actions/setup-android@v3
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_FILE }}" | base64 -d > release.jks
       - uses: tauri-apps/tauri-action@063c0231f444e55760d98acb9c469b994269d4a5
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         with:
           tauriScript: 'bun run tauri'
           tagName: ${{ github.ref_name }}
