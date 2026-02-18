@@ -12,8 +12,13 @@
     let ownedBadges = $derived(player?.badges || []);
     let catalog = BADGES_CATALOG;
 
-    async function buyBadge(badgeId: string, cost: number) {
+    // View State
+    let viewingBadge = $state<any>(null);
+    let isViewModalOpen = $state(false);
+
+    async function buyBadge(badge: any) {
         if (!player || !player.id) return;
+        const cost = badge.cost;
         if ((player.score || 0) < cost) {
             alert($_(I18N.store.not_enough_points_error));
             return;
@@ -23,61 +28,90 @@
             const currentBadges = player.badges || [];
             await db.player.update(player.id, {
                 score: player.score - cost,
-                badges: [...currentBadges, badgeId]
+                badges: [...currentBadges, badge.id]
             });
             alert($_(I18N.store.purchased));
+            isViewModalOpen = false;
         }
     }
 </script>
 
-<div class="space-y-6">
-    <div class="navbar bg-base-100/50 backdrop-blur-md rounded-2xl shadow-sm sticky top-2 z-10 transition-all">
-        <div class="flex-1">
-            <h2 class="text-xl font-bold tracking-tight px-2">{$_(I18N.badges.title)}</h2>
-        </div>
-        <div class="flex-none">
-             <div class="badge badge-lg badge-secondary font-bold gap-1">
-                {player?.score || 0} 🏆
-            </div>
-        </div>
-    </div>
-
-    <!-- Intro Card -->
+<div class="space-y-4">
+    <!-- Intro Card (Optional but maybe nice context) -->
     <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-             <p class="text-sm text-base-content/80">{$_(I18N.badges.intro)}</p>
+        <div class="card-body p-4 text-center text-sm text-base-content/60">
+             {$_(I18N.badges.intro)}
         </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div class="grid grid-cols-2 gap-3">
         {#each catalog as badge}
             {@const isOwned = ownedBadges.includes(badge.id)}
-            <div class="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-all group {isOwned ? 'border-primary/50' : ''}">
-                <div class="card-body p-4 flex flex-row items-center gap-4">
-                    <div class="text-4xl group-hover:scale-110 transition-transform duration-300">
-                        {badge.icon}
+            <div class="indicator w-full">
+                {#if isOwned}
+                    <span class="indicator-item badge badge-success badge-sm top-2 right-2">Owned</span>
+                {/if}
+                <button 
+                    class="card bg-base-200 hover:bg-base-300 transition-colors cursor-pointer w-full border border-base-300 relative aspect-square"
+                    onclick={() => {
+                        viewingBadge = badge;
+                        isViewModalOpen = true;
+                    }}
+                >
+                    <div class="card-body p-2 flex flex-col items-center justify-center text-center gap-2">
+                        <div class="text-6xl transition-transform hover:scale-110 duration-200 drop-shadow-sm">
+                            {badge.icon}
+                        </div>
+                        <div class="w-full">
+                            <h4 class="font-bold text-sm line-clamp-1 w-full truncate leading-tight">{$_(badge.name)}</h4>
+                            {#if !isOwned}
+                                <div class="badge badge-lg badge-secondary mt-2 font-mono font-bold shadow-sm">{badge.cost} 🏆</div>
+                            {/if}
+                        </div>
                     </div>
-                    <div class="flex-1 min-w-0">
-                        <h3 class="font-bold truncate {$_(I18N.badges[badge.id])?.length > 15 ? 'text-sm' : ''}">
-                           {$_(badge.name)}
-                        </h3>
-                        <p class="text-xs text-base-content/60 line-clamp-2" title={$_(badge.description)}>{$_(badge.description)}</p>
-                    </div>
-                    <div class="flex-none">
-                        {#if isOwned}
-                            <div class="badge badge-success badge-sm">{$_(I18N.badges.owned)}</div>
-                        {:else}
-                            <button 
-                                class="btn btn-sm btn-outline btn-secondary" 
-                                onclick={() => buyBadge(badge.id, badge.cost)}
-                                disabled={(player?.score || 0) < badge.cost}
-                            >
-                                {badge.cost} 🏆
-                            </button>
-                        {/if}
-                    </div>
-                </div>
+                </button>
             </div>
         {/each}
     </div>
+
+    <!-- Badge Details & Buy Modal -->
+    <dialog class="modal modal-bottom sm:modal-middle" class:modal-open={isViewModalOpen}>
+        <div class="modal-box">
+             {#if viewingBadge}
+                {@const isOwned = ownedBadges.includes(viewingBadge.id)}
+                
+                <div class="flex justify-center mb-4 mt-8 text-8xl animate-bounce">
+                    {viewingBadge.icon}
+                </div>
+                <h3 class="font-bold text-2xl text-center">{$_(viewingBadge.name)}</h3>
+                <p class="py-4 text-center text-base opacity-80 leading-relaxed">{$_(viewingBadge.description)}</p>
+                
+                <div class="flex justify-center gap-4 text-xs font-bold uppercase tracking-widest opacity-60 mb-6">
+                    <div class="badge badge-lg badge-outline badge-secondary gap-1">
+                        {$_(I18N.store.cost)}: {viewingBadge.cost} 🏆
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <button class="btn btn-outline" onclick={() => isViewModalOpen = false}>{$_(I18N.common.cancel)}</button>
+                    <button 
+                        class="btn btn-secondary" 
+                        disabled={isOwned || (player?.score || 0) < viewingBadge.cost}
+                        onclick={() => buyBadge(viewingBadge)}
+                    >
+                         {#if isOwned}
+                            {$_(I18N.badges.owned)}
+                         {:else if (player?.score || 0) < viewingBadge.cost}
+                            {$_(I18N.badges.need, { values: { cost: viewingBadge.cost - (player?.score || 0) } })}
+                         {:else}
+                            {$_(I18N.store.buy)}
+                         {/if}
+                    </button>
+                </div>
+            {/if}
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button onclick={() => isViewModalOpen = false}>close</button>
+        </form>
+    </dialog>
 </div>

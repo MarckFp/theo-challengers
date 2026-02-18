@@ -36,7 +36,9 @@
         "confirm_title": "Confirmar Compra",
         "refresh_button": "Actualizar Tienda (3 🪙)",
         "refresh_store_confirm": "¿Actualizar tienda por 3 monedas?",
-        "refresh_not_enough": "¡No tienes suficientes monedas!",
+        "refresh_not_enough": "¡No hay suficientes monedas!",
+        "cost": "Costo",
+        "reward": "Recompensa",
         "accept_own_error": "¡No puedes aceptar tu propio desafío!",
         "already_accepted_error": "¡Ya has aceptado este desafío!",
         "challenge_not_found_error": "¡Desafío no encontrado! ¿Quizás lo eliminaste?",
@@ -145,10 +147,22 @@
         "reset_confirm": "¿Estás seguro? ¡Esto borrará todo tu progreso!",
         "save": "Guardar"
     },
+    "leaderboard": {
+        "title": "Tabla de Clasificación",
+        "rank": "Rango",
+        "player": "Jugador",
+        "score": "Puntaje",
+        "empty": "Sin clasificaciones",
+        "time_remaining": "Tiempo Restante",
+        "refresh": "Actualizar",
+        "you": "(Tú)",
+        "updated": "Actualizado"
+    },
     "badges": {
         "title": "Tienda de Insignias",
         "intro": "¡Presume tus logros! Gasta tus Puntos (🏆) para desbloquear estas insignias exclusivas.",
         "owned": "Adquirido",
+        "need": "Faltan {cost} 🏆",
         "confirm_buy": "¿Desbloquear esta insignia por {cost} puntos?",
         "early_adopter": "Pionero",
         "early_adopter_desc": "¡Uno de los primeros en jugar!",

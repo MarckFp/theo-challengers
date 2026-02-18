@@ -5,20 +5,13 @@ import type { Inventory } from '$lib/models/inventory';
 import type { Challengue } from '$lib/models/challengue';
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
+import { getGossipData, processGossip } from './leaderboard';
 
 // Helper to update leaderboard when interacting with peers
 export async function updatePeerScore(nickname: string, score: number) {
+    // Deprecated in favor of processGossip, but kept for compatibility
     if (!nickname || score === undefined) return;
-    try {
-        const existing = await db.leaderboard.where('nickname').equals(nickname).first();
-        if (existing) {
-            await db.leaderboard.update(existing.id!, { score, updated_at: new Date() });
-        } else {
-            await db.leaderboard.add({ nickname, score, updated_at: new Date() });
-        }
-    } catch (e) {
-        console.error('Leaderboard update failed', e);
-    }
+    await processGossip({ gossip: [{ nickname, score, updated_at: new Date() }] }, null);
 }
 
 // ----------------------------------------------------
@@ -48,8 +41,11 @@ export async function createChallengeLink(
 
     // 2. Remove from inventory
     await db.inventory.delete(item.id!);
+    
+    // 3. Get Gossip Data
+    const gossip = await getGossipData();
 
-    // 3. Generate Link Payload
+    // 4. Generate Link Payload
     const payload = {
         type: 'theo-challenge-req-v1',
         id: uniqueId,
@@ -60,7 +56,8 @@ export async function createChallengeLink(
             points: item.points,
             description: item.description
         },
-        message: customMessage
+        message: customMessage,
+        gossip: gossip // Piggyback leaderboard
     };
 
     try {
@@ -88,10 +85,8 @@ export async function verifyClaimCode(
 
         if (data.type !== 'theo-claim-v1') return { success: false, error: 'invalid_code' };
 
-        // Update peer score
-        if (data.claimerScore !== undefined) {
-            await updatePeerScore(data.claimer, data.claimerScore);
-        }
+        // Process Gossip & Peer Score
+        await processGossip(data, currentUser);
 
         // Find Challenge
         const challenge = await db.sentChallenge.where('uuid').equals(data.cid).first();
@@ -107,6 +102,9 @@ export async function verifyClaimCode(
             claimed_by: data.claimer
         });
 
+        // Get Gossip
+        const gossip = await getGossipData();
+
         // Generate Final Authorization Link
         const authPayload = {
             type: 'theo-auth-v1',
@@ -119,7 +117,8 @@ export async function verifyClaimCode(
                 points: challenge.points
             },
             message: challenge.message,
-            from: currentUser.nickname
+            from: currentUser.nickname,
+            gossip: gossip
         };
 
         const confirmB64 = btoa(JSON.stringify(authPayload));
@@ -150,9 +149,8 @@ export async function processIncomingChallengeLink(data: any, currentUser: Playe
         throw new Error('store.already_accepted_error');
     }
 
-    if (data.fromScore !== undefined) {
-        await updatePeerScore(data.from, data.fromScore);
-    }
+    // Process gossip
+    await processGossip(data, currentUser);
 
     return data; // Helper just validates, caller handles UI modal
 }
@@ -174,11 +172,13 @@ export async function acceptChallenge(challengeData: any, currentUser: Player) {
 }
 
 export async function generateVerificationLink(challenge: Challengue, currentUser: Player): Promise<string> {
+    const gossip = await getGossipData();
     const claimPayload = {
         type: 'theo-claim-v1',
         cid: challenge.uuid,
         claimer: currentUser.nickname,
-        claimerScore: currentUser.score || 0
+        claimerScore: currentUser.score || 0, // kept for legacy
+        gossip: gossip
     };
     const claimB64 = btoa(JSON.stringify(claimPayload));
     return `${window.location.origin}?verify_claim=${claimB64}`;
@@ -193,9 +193,8 @@ export async function finalizeChallengeClaim(authData: any, currentUser: Player)
     if (!existing) throw new Error('store.challenge_not_found_error');
     if (existing.completed_at) throw new Error('store.already_achievement_error');
 
-    if (authData.senderScore !== undefined && authData.from) {
-        await updatePeerScore(authData.from, authData.senderScore);
-    }
+    // Process gossip
+    await processGossip(authData, currentUser);
 
     // Apply Rewards & Streak
     const currentStreak = currentUser.streak || 0;

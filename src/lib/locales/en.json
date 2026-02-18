@@ -36,7 +36,9 @@
         "confirm_title": "Confirm Purchase",
         "refresh_button": "Refresh Store (3 🪙)",
         "refresh_store_confirm": "Refresh store for 3 coins?",
-        "refresh_not_enough": "Not enough coins to refresh!",
+        "refresh_not_enough": "Not enough coins!",
+        "cost": "Cost",
+        "reward": "Reward",
         "accept_own_error": "You cannot accept your own challenge!",
         "already_accepted_error": "You have already accepted this challenge!",
         "challenge_not_found_error": "Challenge not found! Maybe you deleted it?",
@@ -145,10 +147,22 @@
         "reset_confirm": "Are you sure? This will delete all your progress!",
         "save": "Save"
     },
+    "leaderboard": {
+        "title": "Leaderboard",
+        "rank": "Rank",
+        "player": "Player",
+        "score": "Score",
+        "empty": "No rankings yet",
+        "time_remaining": "Time Remaining",
+        "refresh": "Refresh",
+        "you": "(You)",
+        "updated": "Last Update"
+    },
     "badges": {
         "title": "Badges Store",
         "intro": "Show off your achievements! Spend your Points (🏆) to unlock these exclusive badges.",
         "owned": "Owned",
+        "need": "Need {cost} 🏆",
         "confirm_buy": "Unlock this badge for {cost} points?",
         "early_adopter": "Early Adopter",
         "early_adopter_desc": "One of the first to play!",

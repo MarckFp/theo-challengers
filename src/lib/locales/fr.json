@@ -37,6 +37,8 @@
         "refresh_button": "Actualiser (3 🪙)",
         "refresh_store_confirm": "Actualiser la boutique pour 3 pièces ?",
         "refresh_not_enough": "Pas assez de pièces !",
+        "cost": "Coût",
+        "reward": "Récompense",
         "accept_own_error": "Vous ne pouvez pas accepter votre propre défi !",
         "already_accepted_error": "Vous avez déjà accepté ce défi !",
         "challenge_not_found_error": "Défi introuvable ! Peut-être l'avez-vous supprimé ?",
@@ -145,10 +147,22 @@
         "reset_confirm": "Êtes-vous sûr ? Cela effacera toute votre progression !",
         "save": "Enregistrer"
     },
+    "leaderboard": {
+        "title": "Classement",
+        "rank": "Rang",
+        "player": "Joueur",
+        "score": "Score",
+        "empty": "Aucun classement",
+        "time_remaining": "Temps Restant",
+        "refresh": "Rafraîchir",
+        "you": "(Toi)",
+        "updated": "Mis à jour"
+    },
     "badges": {
         "title": "Boutique de Badges",
         "intro": "Montrez vos réalisations ! Dépensez vos Points (🏆) pour débloquer ces badges exclusifs.",
         "owned": "Acquis",
+        "need": "Il manque {cost} 🏆",
         "confirm_buy": "Débloquer ce badge pour {cost} points ?",
         "early_adopter": "Pionnier",
         "early_adopter_desc": "Un des premiers à jouer !",
