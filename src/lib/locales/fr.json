@@ -72,7 +72,7 @@
         "points": "Points",
         "available": "Disponible",
         "active_challenges": "Défis actifs",
-        "no_active_challenges": "Aucun défi actif. Envoyez-en un à un ami !",
+        "no_active_challenges": "Aucun défi actif. Attendez qu'un ami vous en envoie un !",
         "from": "De : {user}",
         "mark_complete": "Marquer comme terminé",
         "send_challenge": "Envoyer un défi",
