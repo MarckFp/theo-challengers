@@ -3,6 +3,8 @@
     import {pwaAssetsHead} from 'virtual:pwa-assets/head'
     import {pwaInfo} from 'virtual:pwa-info'
     import { onMount } from 'svelte';
+    import '$lib/i18n'; // Initialize i18n
+    import { isLoading } from 'svelte-i18n';
 
     $: webManifestLink = pwaInfo ? pwaInfo.webManifest.linkTag : ''
 

@@ -3,10 +3,15 @@
     import { liveQuery } from 'dexie';
     import type { Player } from '$lib/models/player';
     import type { Inventory } from '$lib/models/inventory';
+    import { _ } from 'svelte-i18n';
 
     let players = $state<Player[]>([]);
     let inventoryCount = $state(0);
+    let purchasingItem = $state<string | null>(null);
     
+    let isConfirmModalOpen = $state(false);
+    let itemToBuy = $state<any>(null);
+
     // Subscribe to player data
     $effect(() => {
         const sub = liveQuery(() => db.player.toArray()).subscribe(p => {
@@ -62,18 +67,28 @@
         }
     }
 
-    async function buyItem(item: any) {
+    function initiateBuy(item: any) {
         if (!player || !player.id) return;
-
         if (coins < item.cost) {
-            alert('Not enough coins!');
+            alert($_('store.not_enough_coins'));
             return;
         }
-
         if (inventoryCount >= 3) {
-            alert('Inventory is full (max 3 items)!');
+            alert($_('store.inventory_full'));
             return;
         }
+        itemToBuy = item;
+        isConfirmModalOpen = true;
+    }
+
+    async function confirmBuy() {
+        if (!itemToBuy || !player || !player.id) return;
+        
+        const item = itemToBuy;
+        isConfirmModalOpen = false;
+        
+        // Trigger Animation
+        purchasingItem = item.title;
 
         try {
             await db.transaction('rw', db.player, db.inventory, async () => {
@@ -106,8 +121,15 @@
                 
                 await db.inventory.add(inventoryItem);
             });
+            
+            setTimeout(() => {
+                purchasingItem = null;
+                itemToBuy = null;
+            }, 1000);
+
         } catch (e) {
             console.error('Transaction failed', e);
+            purchasingItem = null;
             alert('Purchase failed');
         }
     }
@@ -116,8 +138,8 @@
 <div class="space-y-6 animate-in fade-in zoom-in duration-300">
     <div class="flex justify-between items-center px-1">
         <div>
-            <h2 class="text-2xl font-bold">Store</h2>
-            <p class="text-xs text-base-content/60">Updates daily</p>
+            <h2 class="text-2xl font-bold">{$_('store.title')}</h2>
+            <p class="text-xs text-base-content/60">{$_('store.description')}</p>
         </div>
         <div class="badge badge-primary badge-lg gap-2 font-bold shadow-sm">
             <span class="text-yellow-200">🪙</span>
@@ -133,7 +155,8 @@
     {:else}
         <div class="grid grid-cols-2 gap-4">
             {#each shopItems as item}
-                <div class="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-shadow">
+                <div class={`card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-all 
+                            ${purchasingItem === item.title ? 'shake border-success bg-success/10' : ''}`}>
                     <figure class="px-4 pt-4">
                         <div class={`aspect-square w-full rounded-xl bg-base-200/50 flex flex-col items-center justify-center gap-2 relative group ${item.purchased ? 'opacity-50 grayscale' : ''}`}>
                             <span class="text-4xl drop-shadow-sm transform group-hover:scale-110 transition-transform duration-300">{item.icon || '🎁'}</span>
@@ -147,16 +170,16 @@
                             <button 
                                 class="btn btn-primary btn-sm w-full font-bold gap-1"
                                 disabled={coins < item.cost || inventoryCount >= 3 || item.purchased}
-                                onclick={() => buyItem(item)}
+                                onclick={() => initiateBuy(item)}
                             >
                                 {#if item.purchased}
-                                    <span class="text-xs">Purchased</span>
+                                    <span class="text-xs">{$_('store.purchased')}</span>
                                 {:else if inventoryCount >= 3}
-                                    <span class="text-xs">Full</span>
+                                    <span class="text-xs">{$_('store.full')}</span>
                                 {:else if coins < item.cost}
-                                    <span class="text-xs">Need {item.cost} 🪙</span>
+                                    <span class="text-xs">{$_('store.need', { values: { cost: item.cost } })}</span>
                                 {:else}
-                                    Buy {item.cost} 🪙
+                                    {$_('store.buy')} {item.cost} 🪙
                                 {/if}
                             </button>
                         </div>
@@ -169,7 +192,26 @@
     {#if inventoryCount >= 3}
         <div role="alert" class="alert alert-warning py-2 text-sm shadow-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-            <span>Your inventory is full! Use items to buy more.</span>
+            <span>{$_('store.inventory_full')}</span>
         </div>
     {/if}
+
+    <!-- Purchase Confirmation Modal -->
+    <dialog class="modal modal-bottom sm:modal-middle" open={isConfirmModalOpen}>
+        <div class="modal-box">
+             <h3 class="font-bold text-lg">{$_('store.confirm_title')}</h3>
+             {#if itemToBuy}
+                <p class="py-4">
+                    {$_('store.buy_confirm', { values: { item: itemToBuy.title, cost: itemToBuy.cost } })}
+                </p>
+            {/if}
+            <div class="modal-action">
+                <button class="btn" onclick={() => isConfirmModalOpen = false}>{$_('store.cancel')}</button>
+                <button class="btn btn-primary" onclick={confirmBuy}>{$_('store.buy')}</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button onclick={() => isConfirmModalOpen = false}>{$_('profile.close')}</button>
+        </form>
+    </dialog>
 </div>

@@ -4,9 +4,13 @@
     import type { Player } from '$lib/models/player';
     import type { Inventory } from '$lib/models/inventory';
     import type { Challengue } from '$lib/models/challengue';
+    import { _ } from 'svelte-i18n';
 
     let players = $state<Player[]>([]);
     let inventoryItems = $state<Inventory[]>([]);
+
+    let isDeleteModalOpen = $state(false);
+    let itemToDelete = $state<Inventory | null>(null);
 
     // Subscribe to player
     $effect(() => {
@@ -29,45 +33,30 @@
         return () => sub.unsubscribe();
     });
 
-    // async function completeChallenge(item: Inventory) {
-    //     if (!player || !player.id || !item.id) return;
+    function initiateDelete(item: Inventory) {
+        itemToDelete = item;
+        isDeleteModalOpen = true;
+    }
 
-    //     if (!confirm(`Complete "${item.title}"? You will define your own success.`)) return;
-
-    //     try {
-    //         await db.transaction('rw', db.player, db.inventory, db.challengue, async () => {
-    //             // 1. Add History
-    //             await db.challengue.add({
-    //                 player_id: player.id!,
-    //                 title: item.title,
-    //                 description: item.description,
-    //                 points: item.points,
-    //                 reward: item.reward,
-    //                 completed_at: new Date()
-    //             });
-
-    //             // 2. Update Player (Score + Reward)
-    //             await db.player.update(player.id!, {
-    //                 score: (player.score || 0) + item.points,
-    //                 coins: (player.coins || 0) + item.reward
-    //             });
-
-    //             // 3. Remove from Inventory
-    //             await db.inventory.delete(item.id!);
-    //         });
-    //     } catch (e) {
-    //         console.error('Failed to complete challenge', e);
-    //         alert('Something went wrong.');
-    //     }
-    // }
+    async function confirmDelete() {
+        if (!itemToDelete || !itemToDelete.id) return;
+        
+        try {
+            await db.inventory.delete(itemToDelete.id);
+            isDeleteModalOpen = false;
+            itemToDelete = null;
+        } catch (e) {
+            console.error('Failed to remove item', e);
+        }
+    }
 </script>
 
 <div class="space-y-6 animate-in fade-in zoom-in duration-300">
     <div class="flex justify-between items-center px-1">
         <div>
-            <h2 class="text-2xl font-bold">Inventory</h2>
+            <h2 class="text-2xl font-bold">{$_('inventory.title')}</h2>
             <p class="text-xs text-base-content/60">
-                {inventoryItems.length} / 3 Items
+                {$_('inventory.count', { values: { count: inventoryItems.length } })}
             </p>
         </div>
         {#if player}
@@ -84,8 +73,8 @@
          <div class="card bg-base-100 shadow-sm border border-base-200 py-12 text-center">
             <div class="card-body items-center justify-center text-base-content/70">
                 <span class="text-6xl mb-4">🎒</span>
-                <h3 class="font-bold text-lg">Empty Inventory</h3>
-                <p>Buy challenges from the store to fill your slots.</p>
+                <h3 class="font-bold text-lg">{$_('inventory.empty_title')}</h3>
+                <p>{$_('inventory.empty_desc')}</p>
             </div>
          </div>
     {:else}
@@ -101,7 +90,11 @@
                              <div class="badge badge-sm badge-ghost shrink-0">+{item.points} 🏆</div>
                         </div>
                         <p class="text-xs text-base-content/80">{item.description}</p>
-                        <!-- No interactions for now -->
+                        <div class="card-actions justify-end mt-2">
+                            <button class="btn btn-xs btn-outline btn-error" onclick={() => initiateDelete(item)}>
+                                {$_('inventory.remove_title')}
+                            </button>
+                        </div>
                     </div>
                 </div>
             {/each}
@@ -111,7 +104,22 @@
     {#if inventoryItems.length < 3}
          <div class="alert alert-info py-2 text-sm shadow-sm bg-base-200/50 border-base-300 text-base-content">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            <span>You have {3 - inventoryItems.length} slots available.</span>
+            <span>{$_('inventory.slots_available', { values: { count: 3 - inventoryItems.length } })}</span>
         </div>
     {/if}
+
+    <!-- Delete Confirmation Modal -->
+    <dialog class="modal modal-bottom sm:modal-middle" open={isDeleteModalOpen}>
+        <div class="modal-box">
+             <h3 class="font-bold text-lg text-error">{$_('inventory.remove_confirm_title')}</h3>
+             <p class="py-4">{$_('inventory.remove_confirm_desc')}</p>
+            <div class="modal-action">
+                <button class="btn" onclick={() => isDeleteModalOpen = false}>{$_('inventory.cancel')}</button>
+                <button class="btn btn-error" onclick={confirmDelete}>{$_('inventory.confirm_remove')}</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button onclick={() => isDeleteModalOpen = false}>{$_('profile.close')}</button>
+        </form>
+    </dialog>
 </div>

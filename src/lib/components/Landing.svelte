@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { db } from '$lib/db';
+    import { _ } from 'svelte-i18n';
 
 	/** 
 	 * Props
@@ -19,7 +20,7 @@
         
         try {
             if (!nickname.trim()) {
-                error = 'Please enter a nickname';
+                error = $_('landing.error_empty');
                 loading = false;
                 return;
             }
@@ -37,7 +38,7 @@
             onLogin();
         } catch (e) {
             console.error(e);
-            error = 'Failed to create player. Try a different name?';
+            error = $_('landing.error_create');
         } finally {
             loading = false;
         }
@@ -55,9 +56,9 @@
                 </svg>
             </div>
 			<h1 class="text-3xl font-bold tracking-tight text-base-content">
-                Theo Challengers
+                {$_('landing.title')}
             </h1>
-			<p class="text-base-content/60 font-medium">Motivate friends. Achieve goals.</p>
+			<p class="text-base-content/60 font-medium">{$_('landing.subtitle')}</p>
 		</div>
 			
         <!-- Minimal Form -->
@@ -66,7 +67,7 @@
                 <!-- Cleaner input with floating label feel or minimal style -->
                 <input 
                     type="text" 
-                    placeholder="Enter your nickname" 
+                    placeholder={$_('landing.placeholder')} 
                     class="input input-lg w-full bg-base-200/50 focus:bg-base-100 border-transparent focus:border-primary text-center font-medium placeholder:font-normal placeholder:text-base-content/30 transition-all rounded-2xl" 
                     bind:value={nickname} 
                     readonly={loading}
@@ -83,13 +84,13 @@
                 {#if loading}
                     <span class="loading loading-spinner loading-sm"></span>
                 {:else}
-                    Continue
+                    {$_('landing.continue')}
                 {/if}
             </button>
         </form>
 
         <div class="text-xs text-base-content/30 font-medium tracking-wide">
-            PRESS ENTER TO START
+            {$_('landing.press_enter')}
         </div>
 	</div>
 </div>

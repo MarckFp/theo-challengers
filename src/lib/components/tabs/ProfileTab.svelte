@@ -3,6 +3,7 @@
     import { liveQuery } from 'dexie';
     import { exportDB, importDB } from 'dexie-export-import';
     import { onMount } from 'svelte';
+    import { _, locale } from 'svelte-i18n';
 
     let players = $state<{id?: number, nickname: string}[]>([]); 
     
@@ -18,6 +19,14 @@
         "cmyk", "autumn", "business", "acid", "lemonade", "night", "coffee", "winter"
     ];
     let currentTheme = $state(''); // Initialize empty to wait for mount
+    let currentLang = $state('en');
+
+    $effect(() => {
+        const unsubscribe = locale.subscribe(l => {
+            if (l) currentLang = l.startsWith('es') ? 'es' : 'en';
+        });
+        return unsubscribe;
+    });
 
     $effect(() => {
         const subscription = liveQuery(() => db.player.toArray()).subscribe(result => {
@@ -96,6 +105,10 @@
         }
     }
 
+    function handleLangChange() {
+        locale.set(currentLang);
+    }
+
     // Delete Account Logic
     let isDeleteModalOpen = $state(false);
 
@@ -149,13 +162,26 @@
     </div>
     
     <div class="menu bg-base-100 w-full rounded-box border border-base-200 shadow-sm p-4 gap-2">
+        <!-- Language Selector -->
+        <div>
+            <span class="label-text font-medium flex items-center gap-2 mb-2 px-1">
+                🌎 {$_('profile.language')}
+            </span>
+             <select class="select select-bordered w-full" bind:value={currentLang} onchange={handleLangChange}>
+                <option value="en">English</option>
+                <option value="es">Español</option>
+            </select>
+        </div>
+
+        <div class="divider my-0"></div>
+
         <!-- Theme Selector -->
         <div>
             <span class="label-text font-medium flex items-center gap-2 mb-2 px-1">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4.098 19.902a3.75 3.75 0 0 0 5.304 0l6.401-6.402M6.75 21A3.75 3.75 0 0 1 3 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 0 0 3.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008Z" />
                 </svg>
-                Theme
+                {$_('profile.theme')}
             </span>
             <select class="select select-bordered w-full" bind:value={currentTheme} onchange={handleThemeChange}>
                 <option value="" disabled>Select Theme</option>
@@ -172,7 +198,7 @@
              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-1">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
             </svg>
-            Export Backup
+            {$_('profile.export_data')}
         </button>
 
         <!-- Import Data -->
@@ -180,7 +206,7 @@
              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-1">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 10.5 12 15m0 0 4.5-4.5M12 15V3" />
             </svg>
-            Import Backup
+            {$_('profile.import_data')}
             <input type="file" accept=".json" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange={handleImportData} />
         </button>
 
@@ -191,22 +217,22 @@
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-1">
                   <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
             </svg>
-            Delete Account
+            {$_('profile.reset_data')}
         </button>
     </div>
     
     <!-- Delete Confirmation Modal -->
     <dialog class="modal modal-bottom sm:modal-middle" open={isDeleteModalOpen}>
         <div class="modal-box">
-            <h3 class="font-bold text-lg text-error">Danger Zone!</h3>
-            <p class="py-4">Are you sure you want to delete your account? This action cannot be undone and you will lose all your progress, items, and stats.</p>
+            <h3 class="font-bold text-lg text-error">{$_('profile.danger_zone')}</h3>
+            <p class="py-4">{$_('profile.delete_confirm')}</p>
             <div class="modal-action">
-                <button class="btn" onclick={() => isDeleteModalOpen = false}>Cancel</button>
-                <button class="btn btn-error" onclick={handleDeleteAccount}>Yes, Delete Everything</button>
+                <button class="btn" onclick={() => isDeleteModalOpen = false}>{$_('inventory.cancel')}</button>
+                <button class="btn btn-error" onclick={handleDeleteAccount}>{$_('profile.delete_btn')}</button>
             </div>
         </div>
         <form method="dialog" class="modal-backdrop">
-            <button onclick={() => isDeleteModalOpen = false}>close</button>
+            <button onclick={() => isDeleteModalOpen = false}>{$_('profile.close')}</button>
         </form>
     </dialog>
 </div>

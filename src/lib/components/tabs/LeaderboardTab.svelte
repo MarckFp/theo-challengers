@@ -2,6 +2,7 @@
     import { db } from '$lib/db';
     import { liveQuery } from 'dexie';
     import type { Leaderboard } from '$lib/models/leaderboard';
+    import { _ } from 'svelte-i18n';
 
     let leaderboard = $state<Leaderboard[]>([]);
     let currentUser = $state<{nickname: string, score: number} | null>(null);
@@ -40,7 +41,7 @@
 </script>
 
 <div class="space-y-6">
-    <h2 class="text-2xl font-bold px-1">Leaderboard</h2>
+    <h2 class="text-2xl font-bold px-1">{$_('leaderboard.title')}</h2>
     
     <div class="card bg-base-100 shadow-xl border border-base-200 overflow-hidden">
         <div class="overflow-x-auto">
@@ -48,16 +49,16 @@
                 <!-- head -->
                 <thead>
                 <tr class="bg-base-200/50">
-                    <th>Rank</th>
-                    <th>Player</th>
-                    <th>Points</th>
+                    <th>{$_('leaderboard.rank')}</th>
+                    <th>{$_('leaderboard.player')}</th>
+                    <th>{$_('leaderboard.score')}</th>
                 </tr>
                 </thead>
                 <tbody>
                 {#if leaderboard.length === 0}
                     <tr>
                         <td colspan="4" class="text-center py-4 text-sm text-base-content/50">
-                            No data yet. Send or Accept challenges to see your friends!
+                            {$_('home.no_active_challenges')}
                         </td>
                     </tr>
                 {:else}

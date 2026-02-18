@@ -5,6 +5,7 @@
     import type { Inventory } from '$lib/models/inventory';
     import type { Challengue } from '$lib/models/challengue';
     import { onMount } from 'svelte';
+    import { _ } from 'svelte-i18n';
     
     // Helper to update leaderboard
     async function updatePeerScore(nickname: string, score: number) {
@@ -209,14 +210,14 @@
     async function handleIncomingShare(data: any) {
         if (data.type === 'theo-challenge-req-v1' && currentUser?.id) {
             if (data.from === currentUser.nickname) {
-                alert("You cannot accept your own challenge!");
+                alert($_('store.accept_own_error'));
                 return;
             }
 
             // Check if already accepted
             const existing = await db.challengue.where('uuid').equals(data.id).first();
             if (existing) {
-                alert("You have already accepted this challenge!");
+                alert($_('store.already_accepted_error'));
                 return;
             }
 
@@ -254,7 +255,7 @@
             const json = atob(code);
             const data = JSON.parse(json);
 
-            if (data.type !== 'theo-claim-v1') throw new Error("Invalid code");
+            if (data.type !== 'theo-claim-v1') throw new Error($_('store.invalid_code_error'));
 
             // If verification starts, update the claimee score
             if (data.claimerScore !== undefined) {
@@ -265,12 +266,12 @@
             const challenge = await db.sentChallenge.where('uuid').equals(data.cid).first();
             
             if (!challenge) {
-                 alert("Challenge not found! Maybe you deleted it?");
+                 alert($_('store.challenge_not_found_error'));
                  return;
             }
 
             if (challenge.status !== 'pending') {
-                alert(`This challenge was already claimed by ${challenge.claimed_by || 'someone'}!`);
+                alert($_('store.already_claimed_error', { values: { user: challenge.claimed_by || 'someone' } }));
                 return;
             }
             
@@ -330,7 +331,7 @@
              // Check if already finalized
              const existing = await db.challengue.where('uuid').equals(authData.cid).first();
              if (existing) {
-                 alert(`You already have this achievement!`);
+                 alert($_('store.already_achievement_error'));
                  return;
              }
 
@@ -341,7 +342,7 @@
             const cid = authData.cid || pendingClaimRequest?.id;
 
             if (!item || !cid) {
-                alert("Missing challenge details. Please re-open the original Challenge Link.");
+                alert($_('store.missing_details_error'));
                 return;
             }
 
@@ -361,7 +362,7 @@
                 message: message
             });
 
-            alert("Challenge Validated! Points added.");
+            alert($_('store.validated_success'));
             closeClaimModal();
             window.location.reload(); // Refresh to show changes
 
@@ -408,11 +409,11 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="card bg-base-100 shadow-xl border border-base-200">
             <div class="card-body">
-                <h2 class="card-title">Welcome back, {currentUser?.nickname || 'Player'}!</h2>
-                <p>Ready for a new challenge today?</p>
+                <h2 class="card-title">{$_('home.welcome', { values: { user: currentUser?.nickname || 'Player' } })}</h2>
+                <p>{$_('home.ready_msg')}</p>
                 <div class="card-actions justify-end gap-2">
-                        <button class="btn btn-secondary btn-sm" onclick={openVerifyModal}>Verify Claim</button>
-                    <button class="btn btn-primary btn-sm" onclick={openSendModal}>Send Challenge</button>
+                        <button class="btn btn-secondary btn-sm" onclick={openVerifyModal}>{$_('home.verify_claim')}</button>
+                    <button class="btn btn-primary btn-sm" onclick={openSendModal}>{$_('home.send_challenge')}</button>
                 </div>
             </div>
         </div>
@@ -423,9 +424,9 @@
                     <div class="stat-figure text-secondary">
                         <span class="text-2xl">🏆</span>
                     </div>
-                    <div class="stat-title text-xs">Score</div>
+                    <div class="stat-title text-xs">{$_('home.score')}</div>
                     <div class="stat-value text-secondary text-2xl">{currentUser?.score || 0}</div>
-                    <div class="stat-desc">Points</div>
+                    <div class="stat-desc">{$_('home.points')}</div>
                 </div>
             </div>
 
@@ -434,21 +435,20 @@
                     <div class="stat-figure text-primary">
                         <span class="text-2xl">🪙</span>
                     </div>
-                    <div class="stat-title text-xs">Coins</div>
+                    <div class="stat-title text-xs">{$_('home.coins')}</div>
                     <div class="stat-value text-primary text-2xl">{currentUser?.coins || 0}</div>
-                    <div class="stat-desc">Available</div>
+                    <div class="stat-desc">{$_('home.available')}</div>
                 </div>
             </div>
         </div>
     </div>
 
      <!-- Active Challenges List -->
-    <div class="divider text-base-content/50 font-medium">Active Challenges</div>
+    <div class="divider text-base-content/50 font-medium">{$_('home.active_challenges')}</div>
     
     {#if activeChallenges.length === 0}
         <div class="text-center py-8 text-base-content/50 text-sm bg-base-100 rounded-box border border-dashed border-base-300">
-            <p>No active challenges yet.</p>
-            <p class="text-xs mt-1">Visit the Store or scan a friend's challenge!</p>
+            <p>{$_('home.no_active_challenges')}</p>
         </div>
     {:else}
         <div class="grid grid-cols-1 gap-4">
@@ -482,25 +482,31 @@
     <!-- SEND Challenge Modal -->
     <dialog id="send_challenge_modal" class="modal modal-bottom sm:modal-middle">
         <div class="modal-box">
-            <h3 class="font-bold text-lg text-center">Send a Challenge!</h3>
+            <h3 class="font-bold text-lg text-center">
+                {#if generatedShareLink}
+                    {$_('home.challenge_sent_title', {default: "Challenge Created!"})}
+                {:else}
+                    {$_('home.select_challenge_title', {default: "Select a Challenge"})}
+                {/if}
+            </h3>
             
             {#if !generatedShareLink}
-                <p class="py-4 text-sm text-center text-base-content/70">Pick an item from your inventory to generate a Challenge Link.</p>
+                <p class="py-4 text-sm text-center text-base-content/70">{$_('home.select_challenge_subtitle', {default: "Pick an item from your inventory to generate a Challenge Link."})}</p>
                 <div class="form-control w-full gap-4">
                     <!-- Select Item -->
                     <div>
                         <label class="label">
-                            <span class="label-text">Select Item (use item)</span>
+                            <span class="label-text">{$_('home.select_challenge_title')}</span>
                         </label>
                         <select class="select select-bordered w-full" bind:value={selectedItemId}>
-                            <option disabled selected value={null}>Pick an item</option>
+                            <option disabled selected value={null}>{$_('home.select_challenge_title')}</option>
                             {#each inventory as item}
                                 <option value={item.id}>{item.icon || '📜'} {item.title} ({item.points} pts)</option>
                             {/each}
                         </select>
                         {#if inventory.length === 0}
                             <div class="label">
-                                <span class="label-text-alt text-warning">Your inventory is empty! Visit the store.</span>
+                                <span class="label-text-alt text-warning">{$_('inventory.empty')}</span>
                             </div>
                         {/if}
                     </div>
@@ -508,11 +514,11 @@
                     <!-- Custom Message -->
                     <div>
                         <label class="label">
-                            <span class="label-text">Message (Optional)</span>
+                            <span class="label-text">{$_('home.custom_message')}</span>
                         </label>
                         <textarea 
                             class="textarea textarea-bordered h-24 w-full" 
-                            placeholder="I dare you to complete this challenge..."
+                            placeholder={$_('home.message_placeholder')}
                             bind:value={customMessage}
                         ></textarea>
                     </div>
@@ -523,17 +529,17 @@
                         class="btn btn-primary"
                         onclick={generateChallengeLink}
                         disabled={!selectedItemId}>
-                        Create Challenge Link
+                        {$_('home.create_link')}
                     </button>
                     <form method="dialog">
-                        <button class="btn btn-ghost" onclick={closeSendModal}>Cancel</button>
+                        <button class="btn btn-ghost" onclick={closeSendModal}>{$_('store.cancel')}</button>
                     </form>
                 </div>
             {:else}
                 <div class="flex flex-col items-center justify-center py-6 gap-4">
                     
                     <div class="w-full">
-                        <p class="text-sm text-center mb-2">Share this link with your friend:</p>
+                        <p class="text-sm text-center mb-2">{$_('home.share_link')}</p>
                         <div class="join w-full">
                             <input type="text" value={generatedShareLink} readonly class="input input-bordered input-sm join-item w-full text-xs" />
                             <button class="btn btn-sm btn-primary join-item" onclick={() => {
@@ -544,15 +550,16 @@
                                 {#if copiedState === 'challenge-link'}
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
                                 {:else}
-                                    Copy
+                                    {$_('home.copy_btn')}
                                 {/if}
                             </button>
                         </div>
                          <button class="btn btn-sm btn-outline w-full mt-2" onclick={() => {
                              if (navigator.share && generatedShareLink) {
+                                 const itemTitle = inventory.find(i => i.id === selectedItemId)?.title || selectedItemId;
                                  navigator.share({
-                                     title: 'I challenge you!',
-                                     text: `Completing the ${selectedItemId} challenge on Theo Challengers!`,
+                                     title: $_('home.share_challenge_title'),
+                                     text: $_('home.share_challenge_text', { values: { item: itemTitle } }),
                                      url: generatedShareLink
                                  });
                              } else if (generatedShareLink) {
@@ -560,20 +567,20 @@
                              }
                          }}>
                             {#if copiedState === 'challenge-share-fallback'}
-                                Link Copied! ✅
+                                {$_('home.link_copied')} ✅
                             {:else}
-                                Share via App 🔗
+                                {$_('home.share_via_app')} 🔗
                             {/if}
                          </button>
                     </div>
 
                     <button class="btn btn-ghost btn-xs mt-4" onclick={() => {
                         generatedShareLink = null;
-                    }}>Create Another</button>
+                    }}>{$_('home.create_another_link', {default: "Create Another"})}</button>
                 </div>
                  <div class="modal-action">
                     <form method="dialog">
-                        <button class="btn" onclick={closeSendModal}>Close</button>
+                        <button class="btn" onclick={closeSendModal}>{$_('profile.close')}</button>
                     </form>
                 </div>
             {/if}
@@ -586,11 +593,11 @@
     <!-- RECEIVER: Claim Request Modal -->
     <dialog id="claim_request_modal" class="modal modal-bottom sm:modal-middle">
         <div class="modal-box">
-             <h3 class="font-bold text-lg text-center">Challenge Request</h3>
+             <h3 class="font-bold text-lg text-center">{$_('store.challenge_request_title')}</h3>
              
              {#if pendingClaimRequest}
                 <div class="py-4">
-                    <p class="text-sm text-center">You are requesting a challenge from <span class="font-bold text-primary">{pendingClaimRequest.from}</span></p>
+                    <p class="text-sm text-center">{@html $_('store.requesting_from', { values: { user: pendingClaimRequest.from } })}</p>
                     
                     <div class="card bg-base-200 p-3 mt-2">
                          <h4 class="font-bold">{pendingClaimRequest.item.title}</h4>
@@ -598,14 +605,14 @@
                          <p class="text-xs mt-2 italic">"{pendingClaimRequest.message}"</p>
                     </div>
 
-                    <div class="divider text-xs">STEP 1</div>
-                    <p class="text-xs text-center mb-2">Send this <span class="font-bold">Verification Link</span> to {pendingClaimRequest.from}:</p>
+                    <div class="divider text-xs">{$_('store.step_1')}</div>
+                    <p class="text-xs text-center mb-2">{@html $_('store.send_verification_link', { values: { user: pendingClaimRequest.from } })}</p>
                     
                     <button class="btn btn-primary w-full" onclick={() => {
                          if (navigator.share && generatedClaimCode) {
                              navigator.share({
-                                 title: 'Verify Theo Challenge',
-                                 text: `Confirm I completed the challenge!`,
+                                 title: $_('home.share_verify_title'),
+                                 text: $_('home.share_verify_text'),
                                  url: generatedClaimCode
                              });
                          } else if (generatedClaimCode) {
@@ -615,21 +622,21 @@
                         {#if copiedState === 'verification-link'}
                             Link Copied! ✅
                         {:else}
-                            Share Verification Link 🔗
+                            {$_('store.share_verification_link')}
                         {/if}
                     </button>
 
-                    <div class="divider text-xs">STEP 2</div>
-                    <p class="text-xs text-center mb-2 font-semibold">Wait for your friend to send back a Confirmation Link!</p>
-                    <p class="text-[10px] text-center text-base-content/50">When you click their link, the challenge will be added automatically.</p>
+                    <div class="divider text-xs">{$_('store.step_2')}</div>
+                    <p class="text-xs text-center mb-2 font-semibold">{$_('store.wait_confirmation')}</p>
+                    <p class="text-[10px] text-center text-base-content/50">{$_('store.wait_confirmation_desc')}</p>
                     
                     <details class="collapse collapse-arrow bg-base-200 mt-4">
-                        <summary class="collapse-title text-xs font-medium">Manual Entry (Fallback)</summary>
+                        <summary class="collapse-title text-xs font-medium">{$_('store.manual_entry')}</summary>
                         <div class="collapse-content">
-                            <p class="text-[10px] mb-2">If links don't work, paste the Auth Key here:</p>
-                            <input type="text" bind:value={authKeyInput} placeholder="Paste Auth Key..." class="input input-bordered input-sm w-full" />
+                            <p class="text-[10px] mb-2">{$_('store.manual_entry_desc')}</p>
+                            <input type="text" bind:value={authKeyInput} placeholder={$_('store.paste_auth_key')} class="input input-bordered input-sm w-full" />
                             <button class="btn btn-success btn-xs btn-block mt-2" disabled={!authKeyInput} onclick={() => finalizeClaim()}>
-                                Validate Manually
+                                {$_('store.validate_manually')}
                             </button>
                         </div>
                     </details>
@@ -647,16 +654,16 @@
              <form method="dialog">
                  <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick={closeVerifyModal}>✕</button>
             </form>
-            <h3 class="font-bold text-lg text-center">Verify Claim</h3>
-            <p class="text-xs text-center mt-1 text-base-content/70">Paste the Claim Code your friend sent you.</p>
+            <h3 class="font-bold text-lg text-center">{$_('store.verify_claim_title')}</h3>
+            <p class="text-xs text-center mt-1 text-base-content/70">{$_('store.verify_claim_subtitle')}</p>
 
             <div class="py-4">
                 {#if !generatedAuthKey}
                     <div class="form-control w-full mt-4">
-                        <p class="text-xs text-center mb-2">Wait for your friend to send a Verification Link, or paste code here:</p>
+                        <p class="text-xs text-center mb-2">{$_('store.wait_friend_verification')}</p>
                         <textarea 
-                            class="textarea textarea-bordered h-24 text-xs" 
-                            placeholder="Or paste claim code/link..." 
+                            class="textarea textarea-bordered h-24 w-full text-xs" 
+                            placeholder={$_('store.paste_claim_code')}
                             bind:value={pendingVerificationId}
                         ></textarea>
                     </div>
@@ -666,22 +673,22 @@
                          For now assume manual pastes are raw codes or that verifyClaimCode is updated to parse URLs.
                     -->
                     <button class="btn btn-primary btn-block mt-4" onclick={verifyClaimCode} disabled={!pendingVerificationId}>
-                        Confirm & Generate Link
+                        {$_('store.verify_confirm_btn')}
                     </button>
                 {:else}
                     <div class="flex flex-col items-center justify-center py-4 gap-4">
                          <div class="alert alert-success text-xs shadow-md">
-                            <span>Challenge Accepted!</span>
+                            <span>{$_('home.challenge_accepted')}</span>
                         </div>
 
                          <div class="w-full">
-                            <p class="text-sm text-center mb-2">Send this <span class="font-bold">Confirmation Link</span> back:</p>
+                            <p class="text-sm text-center mb-2">{@html $_('home.send_confirm_link_back')}</p>
                             
                             <button class="btn btn-primary w-full" onclick={() => {
                                 if (navigator.share && generatedAuthKey) {
                                     navigator.share({
-                                        title: 'Challenge Confirmed!',
-                                        text: `I confirmed your challenge completion!`,
+                                        title: $_('home.share_confirmed_title'),
+                                        text: $_('home.confirmed_msg'),
                                         url: generatedAuthKey
                                     });
                                 } else if (generatedAuthKey) {
@@ -689,9 +696,9 @@
                                 }
                             }}>
                                 {#if copiedState === 'confirm-link'}
-                                    Link Copied! ✅
+                                    {$_('home.link_copied')} ✅
                                 {:else}
-                                    Share Confirmation Link 🔗
+                                    {$_('store.share_confirmation_link')}
                                 {/if}
                             </button>
                         </div>
@@ -699,14 +706,14 @@
                         <button class="btn btn-ghost btn-xs mt-4" onclick={() => {
                             generatedAuthKey = null;
                             pendingVerificationId = null;
-                        }}>Close</button>
+                        }}>{$_('profile.close')}</button>
                     </div>
                 {/if}
             </div>
             
         </div>
         <form method="dialog" class="modal-backdrop">
-             <button onclick={closeVerifyModal}>close</button>
+             <button onclick={closeVerifyModal}>{$_('profile.close')}</button>
         </form>
     </dialog>
-</div>
+    </div>
