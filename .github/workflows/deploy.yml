@@ -214,7 +214,7 @@ jobs:
         run: |
           cd src-tauri/gen/apple
           xcodebuild \
-            -workspace theo-challengers.xcodeproj \
+            -workspace theo-challengers.xcodeproj/project.xcworkspace \
             -scheme theo-challengers_iOS \
             -configuration release \
             -destination 'generic/platform=iOS' \
