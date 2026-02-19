@@ -1,4 +1,21 @@
 {
+    "tutorial": {
+        "step_1_title": "¡Bienvenido!",
+        "step_1_desc": "¡Bienvenido a Theo Challengers! Aquí puedes desafiar a tus amigos, ganar monedas y subir en la tabla de clasificación.",
+        "step_2_title": "Monedas y Bono Semanal",
+        "step_2_desc": "Ganas monedas por mantener rachas diarias. ¡Vuelve cada semana para reclamar tu Bono Semanal!",
+        "step_3_title": "Tienda Diaria",
+        "step_3_desc": "Usa tus monedas para comprar objetos en la Tienda. ¡Los objetos se renuevan cada día, así que revisa seguido!",
+        "step_4_title": "Desafía a Amigos",
+        "step_4_desc": "Después de comprar un objeto, ve a tu Inventario y pulsa 'Desafiar'. Comparte el enlace con un amigo por cualquier app de mensajería.",
+        "step_5_title": "Verifica y Gana",
+        "step_5_desc": "Cuando tu amigo complete el desafío, te mostrará un código QR. ¡Escanéalo para ganar Puntos (Trofeos)!",
+        "step_6_title": "Tablas y Rangos",
+        "step_6_desc": "¡Compite por el primer lugar en la Tabla Mensual! Tus puntos totales también desbloquean Insignias y Rangos permanentes.",
+        "next": "Siguiente",
+        "back": "Atrás",
+        "finish": "¡A Jugar!"
+    },
     "landing": {
         "title": "Theo Challengers",
         "subtitle": "Motiva amigos. Logra metas.",
@@ -17,7 +34,7 @@
             "step_3_title": "3. Desafía Amigos",
             "step_3_desc": "Envía un enlace de desafío a un amigo por mensajería.",
             "step_4_title": "4. Verifica y Gana",
-            "step_4_desc": "Cuando terminen, te enviarán un enlace de desafío. ¡Verifícalo para ganar puntos!",
+            "step_4_desc": "Cuando terminen, te mostrarán un código QR. ¡Verifícalo para ganar puntos!",
             "close": "¡Entendido, a jugar!"
         }
     },
@@ -194,8 +211,8 @@
         "confirm": "Confirmar"
     },
     "bonus": {
-        "title": "¡Bono Diario!",
-        "message": "¡Aquí tienes una moneda por volver hoy!",
+        "title": "¡Bono Semanal!",
+        "message": "¡Aquí tienes una moneda por volver esta semana!",
         "collect": "Recoger",
         "streak_active": "¡Racha: {streak}!",
         "extra_coins": "¡Moneda(s) Extra!"

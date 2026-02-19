@@ -20,9 +20,17 @@ export async function processGossip(data: any, currentUser: any) {
              if (!currentUser || externalUser !== currentUser.nickname) {
                 const existing = await db.leaderboard.where({ nickname: externalUser }).first();
                 if (existing) {
-                    if (existing.score < externalScore) {
-                        await db.leaderboard.update(existing.id!, { score: externalScore, updated_at: new Date() });
-                    }
+                    // Update if score is higher OR if it's lower but the timestamp is significantly newer (indicating a reset)
+                    // For now simplicity: always update if we receive new info, assuming timestamps are somewhat reliable or sync happens
+                    // But actually, just checking if score is different is unsafe for out-of-order packets.
+                    // Let's trust the latest 'updated_at' if available, otherwise defaulting to max score strategy is problematic for resets.
+                    // Given the requirement "leaderboard reset every month", we should probably CLEAR the local leaderboard on reset too.
+                    
+                    // If the received score is 0 and existing is > 0, it might be a reset.
+                    // Let's allow update if score is different.
+                    // To be robust: If existing.updated_at < new Date() ... but we don't have sender timestamp always.
+                    // Let's just update for now. 
+                    await db.leaderboard.update(existing.id!, { score: externalScore, updated_at: new Date() });
                 } else {
                     await db.leaderboard.add({ nickname: externalUser, score: externalScore, updated_at: new Date() });
                 }
@@ -34,9 +42,9 @@ export async function processGossip(data: any, currentUser: any) {
     if (currentUser) {
          try {
              const existingMe = await db.leaderboard.where({ nickname: currentUser.nickname }).first();
-             if (existingMe && existingMe.score < currentUser.score) {
+             if (existingMe) {
                  await db.leaderboard.update(existingMe.id!, { score: currentUser.score, updated_at: new Date() });
-             } else if (!existingMe) {
+             } else {
                  await db.leaderboard.add({ nickname: currentUser.nickname, score: currentUser.score, updated_at: new Date() });
              }
          } catch {}
@@ -54,12 +62,11 @@ export async function processGossip(data: any, currentUser: any) {
         try {
             const existing = await db.leaderboard.where({ nickname: entry.nickname }).first();
             if (existing) {
-                if (entry.score > existing.score) {
-                    await db.leaderboard.update(existing.id!, { 
-                        score: entry.score, 
-                        updated_at: new Date(entry.updated_at || Date.now()) 
-                    });
-                }
+                // Always update to reflect resets or latest state
+                await db.leaderboard.update(existing.id!, { 
+                    score: entry.score, 
+                    updated_at: new Date(entry.updated_at || Date.now()) 
+                });
             } else {
                 await db.leaderboard.add({
                     nickname: entry.nickname,

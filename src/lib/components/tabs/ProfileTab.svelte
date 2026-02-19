@@ -6,13 +6,19 @@
     import { _, locale } from 'svelte-i18n';
     import { useUser } from '$lib/stores/user.svelte';
     import { I18N } from '$lib/i18n-keys';
+    import TutorialModal from '../TutorialModal.svelte';
 
     const userStore = useUser();
     let player = $derived(userStore.value);
     
+    // Tutorial State
+    let isTutorialOpen = $state(false);
+
     // Level Logic
+    let trackedScore = $derived(player?.lifetimeScore ?? player?.score ?? 0);
+
     let levelInfo = $derived.by(() => {
-        const score = player?.score || 0;
+        const score = trackedScore;
         if (score < 100) return { titleKey: 'novice' as const, min: 0, max: 100, level: 1 };
         if (score < 500) return { titleKey: 'risk_taker' as const, min: 100, max: 500, level: 2 };
         if (score < 1000) return { titleKey: 'daredevil' as const, min: 500, max: 1000, level: 3 };
@@ -20,7 +26,7 @@
     });
 
     let currentProgress = $derived.by(() => {
-        const score = player?.score || 0;
+        const score = trackedScore;
         if (levelInfo.level >= 4) return 100;
         return Math.min(100, Math.max(0, ((score - levelInfo.min) / (levelInfo.max - levelInfo.min)) * 100));
     });
@@ -224,6 +230,12 @@
 
         <div class="divider my-0"></div>
 
+        <!-- How To Play Button -->
+        <button class="btn btn-ghost justify-start" onclick={() => isTutorialOpen = true}>
+            <span class="mr-1 text-lg">💡</span>
+            {$_('landing.how_to_play')}
+        </button>
+
         <!-- Export Data -->
         <button class="btn btn-ghost justify-start" onclick={handleExportData}>
              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-1">
@@ -266,4 +278,6 @@
             <button onclick={() => isDeleteModalOpen = false}>{$_(I18N.common.close)}</button>
         </form>
     </dialog>
+
+    <TutorialModal bind:open={isTutorialOpen} />
 </div>

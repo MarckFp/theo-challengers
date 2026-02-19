@@ -207,6 +207,7 @@ export async function finalizeChallengeClaim(authData: any, currentUser: Player)
 
     await db.player.update(currentUser.id!, {
         score: (currentUser.score || 0) + (existing.points * multiplier),
+        lifetimeScore: (currentUser.lifetimeScore ?? currentUser.score ?? 0) + (existing.points * multiplier),
         coins: (currentUser.coins || 0) + existing.reward,
         streak: currentStreak + 1
     });

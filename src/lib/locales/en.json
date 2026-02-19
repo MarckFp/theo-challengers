@@ -1,4 +1,21 @@
 {
+    "tutorial": {
+        "step_1_title": "Welcome!",
+        "step_1_desc": "Welcome to Theo Challengers! Here you can challenge your friends to fun tasks, earn coins, and climb the leaderboard.",
+        "step_2_title": "Coins & Weekly Bonus",
+        "step_2_desc": "You earn coins by completing daily streaks. Come back every week to claim your Weekly Bonus!",
+        "step_3_title": "Daily Shop",
+        "step_3_desc": "Use your coins to buy challenge items from the Shop. Items refresh every day, so check back often!",
+        "step_4_title": "Challenge Friends",
+        "step_4_desc": "After buying an item, go to your Inventory and click 'Challenge'. Share the link with a friend via any messaging app.",
+        "step_5_title": "Verify & Win",
+        "step_5_desc": "When your friend completes the challenge, they'll show you a QR code. Scan it to earn Points (Trophies)!",
+        "step_6_title": "Leaderboard & Ranks",
+        "step_6_desc": "Compete for the top spot on the Monthly Leaderboard! Your lifetime points also help you unlock permanent Badges and Ranks.",
+        "next": "Next",
+        "back": "Back",
+        "finish": "Let's Play!"
+    },
     "landing": {
         "title": "Theo Challengers",
         "subtitle": "Motivate friends. Achieve goals.",
@@ -17,7 +34,7 @@
             "step_3_title": "3. Challenge Friends",
             "step_3_desc": "Send a challenge link to a friend via messaging apps.",
             "step_4_title": "4. Verify & Win",
-            "step_4_desc": "When they complete it, they send you a claim link. Verify it to earn points!",
+            "step_4_desc": "When they complete it, they'll show you a QR code. Verify it to earn points!",
             "close": "Got it, Let's Play!"
         }
     },
@@ -194,8 +211,8 @@
         "confirm": "Confirm"
     },
     "bonus": {
-        "title": "Daily Bonus!",
-        "message": "Here is a coin for coming back today!",
+        "title": "Weekly Bonus!",
+        "message": "Here is a coin for coming back this week!",
         "collect": "Collect",
         "streak_active": "Streak: {streak}!",
         "extra_coins": "Extra Coin(s)!"

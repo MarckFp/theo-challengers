@@ -41,10 +41,13 @@
 
         try {
              // 1. DEDUCT POINTS & ADD BADGE
+             // Ensure we check against current monthly score, 
+             // but buying shouldn't affect lifetime rank progress if we don't want it to
              const newScore = currentScore - cost;
              if (newScore < 0) return;
              
              const currentBadges = player.badges || [];
+             // Only update 'score' (monthly/spendable), not 'lifetimeScore' (rank progress)
              await db.player.update(player.id, {
                 score: newScore,
                 badges: [...currentBadges, badge.id]

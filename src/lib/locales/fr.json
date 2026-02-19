@@ -1,4 +1,21 @@
 {
+    "tutorial": {
+        "step_1_title": "Bienvenue !",
+        "step_1_desc": "Bienvenue sur Theo Challengers ! Défiez vos amis, gagnez des pièces et montez dans le classement.",
+        "step_2_title": "Pièces & Bonus Hebdomadaire",
+        "step_2_desc": "Vous gagnez des pièces grâce à vos séries. Revenez chaque semaine pour votre Bonus Hebdomadaire !",
+        "step_3_title": "Boutique Quotidienne",
+        "step_3_desc": "Utilisez vos pièces pour acheter des défis. Les objets changent chaque jour, alors revenez souvent !",
+        "step_4_title": "Défiez vos Amis",
+        "step_4_desc": "Après achat, allez dans l'Inventaire et cliquez sur 'Défier'. Partagez le lien avec un ami via n'importe quelle app.",
+        "step_5_title": "Vérifiez & Gagnez",
+        "step_5_desc": "Quand votre ami termine le défi, il vous montrera un QR code. Scannez-le pour gagner des Points (Trophées) !",
+        "step_6_title": "Classement & Rangs",
+        "step_6_desc": "Visez la première place du Classement Mensuel ! Vos points à vie débloquent aussi des Badges et Rangs permanents.",
+        "next": "Suivant",
+        "back": "Retour",
+        "finish": "Jouer !"
+    },
     "landing": {
         "title": "Theo Challengers",
         "subtitle": "Motivez vos amis. Atteignez vos objectifs.",
@@ -17,7 +34,7 @@
             "step_3_title": "3. Défiez vos amis",
             "step_3_desc": "Envoyez un lien de défi à un ami via une application de messagerie.",
             "step_4_title": "4. Vérifiez et gagnez",
-            "step_4_desc": "Lorsqu'ils terminent, ils vous envoient un lien de réclamation. Vérifiez-le pour gagner des points !",
+            "step_4_desc": "Lorsqu'ils terminent, ils affichent un QR code. Vérifiez-le pour gagner des points !",
             "close": "Compris, jouons !"
         }
     },
@@ -194,8 +211,8 @@
         "confirm": "Confirmer"
     },
     "bonus": {
-        "title": "Bonus Quotidien !",
-        "message": "Voici une pièce pour votre retour !",
+        "title": "Bonus Hebdomadaire !",
+        "message": "Voici une pièce pour votre retour cette semaine !",
         "collect": "Récupérer",
         "streak_active": "Série : {streak} !",
         "extra_coins": "Pièce(s) Extra !"

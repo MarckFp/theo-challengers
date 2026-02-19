@@ -9,6 +9,7 @@
     import { _ } from 'svelte-i18n';
     import { useUser } from '$lib/stores/user.svelte';
     import { I18N } from '$lib/i18n-keys';
+    import TutorialModal from './TutorialModal.svelte';
 
     type Tab = 'home' | 'leaderboard' | 'store' | 'inventory' | 'profile';
     
@@ -17,25 +18,64 @@
     
     let activeTab = $state<Tab>('home');
     let isDailyBonusOpen = $state(false);
+    let isTutorialOpen = $state(false);
     
+    // We only want to trigger tutorial once per load if needed.
+    let tutorialCheckDone = false;
+
     let currentStreak = $derived(player?.streak || 0);
 
     $effect(() => {
         if (!player) return;
-        const today = new Date().toISOString().split('T')[0];
         
-        // If bonus not collected today
-        if (player.lastDailyBonus !== today) {
+        // Check for tutorial
+        if (!tutorialCheckDone && (player.tutorialSeen === false || player.tutorialSeen === undefined)) {
+            // Need to ensure we don't open if we're currently in 'Store' or other tabs? No, landing into Home is fine.
+            setTimeout(() => isTutorialOpen = true, 500);
+            tutorialCheckDone = true;
+        }
+
+        // 1. Monthly Reset Logic
+        const today = new Date();
+        const currentMonthId = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (player.lastMonthlyReset !== currentMonthId) {
+            // New month! Reset monthly score but preserve lifetime progress
+            db.player.update(player.id!, {
+                lastMonthlyReset: currentMonthId,
+                score: 0,
+                // Ensure lifetimeScore is set if it was missing (migration)
+                lifetimeScore: player.lifetimeScore ?? player.score ?? 0
+            });
+            // Clear leaderboard to start fresh locally
+            db.leaderboard.clear();
+        }
+
+        // 2. Weekly Bonus Logic
+        const currentWeekId = getWeekId(today);
+        
+        // If bonus not collected this week
+        if (player.lastWeeklyBonus !== currentWeekId) {
              if (!isDailyBonusOpen) isDailyBonusOpen = true;
         } else {
              if (isDailyBonusOpen) isDailyBonusOpen = false;
         }
     });
 
+    function getWeekId(d: Date) {
+        // Returns YYYY-Www (e.g. 2024-W08)
+        const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+        const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+        const weekNo = Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+        return `${date.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+    }
+
     async function collectBonus() {
         if (!player || !player.id) return;
 
-         const today = new Date().toISOString().split('T')[0];
+         const currentWeekId = getWeekId(new Date());
+         
          // Streak Bonus Logic:
          // If streak >= 3 -> +2 coins
          // If streak >= 7 -> +3 coins
@@ -48,7 +88,7 @@
 
          await db.player.update(player.id, {
              coins: (player.coins || 0) + bonusAmount,
-             lastDailyBonus: today
+             lastWeeklyBonus: currentWeekId
          });
     }
 
@@ -171,4 +211,13 @@
         </div>
         <!-- No backdrop click to close, must collect -->
     </dialog>
+    
+    <TutorialModal 
+        bind:open={isTutorialOpen} 
+        onComplete={() => {
+            if (player?.id) {
+                db.player.update(player.id, { tutorialSeen: true });
+            }
+        }}
+    />
 </div>

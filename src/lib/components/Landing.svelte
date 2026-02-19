@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { db } from '$lib/db';
     import { _ } from 'svelte-i18n';
+    import TutorialModal from './TutorialModal.svelte';
 
 	/** 
 	 * Props
@@ -11,6 +12,7 @@
 	let nickname = $state('');
     let error = $state('');
     let loading = $state(false);
+    let isTutorialOpen = $state(false);
 
 	async function handleSubmit(event?: Event) {
         if(event) event.preventDefault();
@@ -31,7 +33,8 @@
                 coins: 2,
                 score: 0,
                 lastShopUpdate: '',
-                shopItems: []
+                shopItems: [],
+                tutorialSeen: false
             });
 
             // Notify parent
@@ -60,7 +63,7 @@
             </h1>
 			<p class="text-base-content/60 font-medium">{$_('landing.subtitle')}</p>
             
-            <button class="btn btn-xs btn-ghost text-primary no-animation hover:bg-transparent hover:underline" onclick={() => (document.getElementById('guide_modal') as HTMLDialogElement)?.showModal()}>
+            <button class="btn btn-xs btn-ghost text-primary no-animation hover:bg-transparent hover:underline" onclick={() => isTutorialOpen = true}>
                 {$_('landing.how_to_play')} ℹ️
             </button>
 		</div>
@@ -97,6 +100,10 @@
             {$_('landing.press_enter')}
         </div>
 	</div>
+    
+    <TutorialModal bind:open={isTutorialOpen} onClose={() => isTutorialOpen = false} />
+
+```
 
     <dialog id="guide_modal" class="modal modal-bottom sm:modal-middle">
         <div class="modal-box">
