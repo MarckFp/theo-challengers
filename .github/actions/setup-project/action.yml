@@ -13,4 +13,4 @@ runs:
     - shell: bash
       run: bun pm version ${{ inputs.tag-name }} --no-git-tag-version
     - shell: bash
-      run: bun run tauri icon static/favicon-32x32.png
+      run: bun run tauri icon static/android-chrome-512x512.png

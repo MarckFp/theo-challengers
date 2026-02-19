@@ -5,8 +5,10 @@
     import { useUser } from '$lib/stores/user.svelte';
     import { useInventory } from '$lib/stores/inventory.svelte';
     import { I18N } from '$lib/i18n-keys';
+    import QrCode from '$lib/components/QrCode.svelte';
+    import ChallengeShareActions from '$lib/components/ChallengeShareActions.svelte';
 
-    import { createChallengeLink } from '$lib/services/challenge';
+    import { createChallengeLink, commitChallengeLink } from '$lib/services/challenge';
 
     const userStore = useUser();
     const inventoryStore = useInventory();
@@ -19,8 +21,16 @@
 
     // Challenge Modal State
     let isChallengeModalOpen = $state(false);
-    let challengeLink = $state('');
+    let generatedShareLink = $state<string | null>(null);
+    let generatedChallengeId = $state<string | null>(null);
+    let isChallengeCommitted = $state(false);
     let challengeItem = $state<Inventory | null>(null);
+    let customMessage = $state('');
+
+    // QR Modal State
+    let isShowQrModalOpen = $state(false);
+    let qrCodeTitle = $state('');
+    let qrCodeValue = $state('');
 
     // View Modal State
     let isViewModalOpen = $state(false);
@@ -50,14 +60,103 @@
         }
     }
 
-    async function handleShareChallenge(item: Inventory) {
-        if (!item) return;
-        const link = await createChallengeLink(player!, item, "Let's play!");
-        if (link) {
-            challengeLink = link;
-            challengeItem = item;
-            isChallengeModalOpen = true;
-            isViewModalOpen = false;
+    function showQr(title: string, value: string) {
+        qrCodeTitle = title;
+        qrCodeValue = value;
+        isShowQrModalOpen = true;
+    }
+
+    function openChallengeModal(item: Inventory) {
+        challengeItem = item;
+        customMessage = '';
+        generatedShareLink = null;
+        isChallengeModalOpen = true;
+        isViewModalOpen = false;
+    }
+
+    function closeChallengeModal() {
+        isChallengeModalOpen = false;
+        generatedShareLink = null;
+        generatedChallengeId = null;
+        isChallengeCommitted = false;
+        customMessage = '';
+        challengeItem = null;
+    }
+
+    function closeShareChallengeFlow() {
+        isShowQrModalOpen = false;
+        closeChallengeModal();
+    }
+
+    async function generateChallengeLink() {
+        if (!challengeItem || !player) return;
+        const draft = await createChallengeLink(player, challengeItem, customMessage);
+        if (draft) {
+            generatedShareLink = draft.link;
+            generatedChallengeId = draft.id;
+            isChallengeCommitted = false;
+        }
+    }
+
+    async function commitChallengeIfNeeded() {
+        if (isChallengeCommitted) return true;
+        if (!player || !challengeItem || !generatedChallengeId) return false;
+
+        const committed = await commitChallengeLink(player, challengeItem, customMessage, generatedChallengeId);
+        if (committed) {
+            isChallengeCommitted = true;
+        }
+        return committed;
+    }
+
+    function resolveGeneratedShareLink(): string {
+        if (typeof generatedShareLink === 'string') return generatedShareLink;
+        if (generatedShareLink && typeof generatedShareLink === 'object' && 'link' in (generatedShareLink as any)) {
+            return String((generatedShareLink as any).link ?? '');
+        }
+        return '';
+    }
+
+    async function handleShowQrFromShareActions() {
+        const shareLink = resolveGeneratedShareLink();
+        if (!shareLink) return;
+        const committed = await commitChallengeIfNeeded();
+        if (!committed) return;
+        showQr($_(I18N.home.show_qr), shareLink);
+    }
+
+    async function handleShareViaAppFromShareActions() {
+        if (!generatedChallengeId || !challengeItem || !player) return;
+        const shareLink = resolveGeneratedShareLink();
+        if (!shareLink) return;
+
+        if (!navigator.share) {
+            const committed = await commitChallengeIfNeeded();
+            if (!committed) return;
+            showQr($_(I18N.home.show_qr), shareLink);
+            return;
+        }
+
+        try {
+            await navigator.share({
+                title: $_(I18N.home.share_challenge_title),
+                text: $_(I18N.home.share_challenge_text, { values: { item: challengeItem.title ? $_(challengeItem.title) : '' } }),
+                url: shareLink
+            });
+            const committed = await commitChallengeIfNeeded();
+            if (committed) {
+                closeShareChallengeFlow();
+            }
+        } catch (error: any) {
+            if (error?.name === 'AbortError') {
+                return;
+            } else {
+                console.error(error);
+                const committed = await commitChallengeIfNeeded();
+                if (committed) {
+                    showQr($_(I18N.home.show_qr), shareLink);
+                }
+            }
         }
     }
 </script>
@@ -151,9 +250,9 @@
                     <div class="flex w-full gap-2">
                         <button 
                             class="btn btn-primary flex-1 shadow-lg shadow-primary/20"
-                            onclick={() => handleShareChallenge(viewingItem!)}
+                            onclick={() => openChallengeModal(viewingItem!)}
                         >
-                             🚀 {$_(I18N.inventory.challenge_btn || 'Challenge!')}
+                             🚀 {$_(I18N.inventory.challenge_btn)}
                         </button>
                     </div>
 
@@ -174,26 +273,88 @@
     </dialog>
     
     <!-- Challenge Link Modal -->
-    <dialog class="modal modal-bottom sm:modal-middle" class:modal-open={isChallengeModalOpen}>
-        <div class="modal-box text-center">
-             <h3 class="font-bold text-lg text-secondary">Ready to Challenge!</h3>
-             <p class="py-4">Share this link with your friend:</p>
-             <div class="bg-base-200 p-2 rounded-lg break-all text-xs mb-4 select-all font-mono">
-                {challengeLink}
-             </div>
-             <p class="text-xs text-base-content/50 mb-4">(In real app, just share this!)</p>
-             <div class="modal-action justify-center">
-                 <button class="btn btn-primary w-full" onclick={() => {
-                     navigator.clipboard.writeText(challengeLink);
-                     alert("Copied!");
-                     isChallengeModalOpen = false;
-                 }}>
-                    📋 Copy Link
-                 </button>
-             </div>
+    <dialog class="modal modal-bottom sm:modal-middle" open={isChallengeModalOpen}>
+        <div class="modal-box">
+            <h3 class="font-bold text-lg text-center">
+                {#if generatedShareLink}
+                    {$_(I18N.home.challenge_sent_title)}
+                {:else}
+                    {$_(I18N.home.select_challenge_title)}
+                {/if}
+            </h3>
+
+            {#if !generatedShareLink}
+                <div class="py-4 space-y-4">
+                    <div>
+                        <h4 class="text-sm font-semibold mb-2 opacity-70 flex items-center gap-2">
+                            <span>🎯</span> {$_(I18N.home.select_challenge_title)}
+                        </h4>
+
+                        {#if challengeItem}
+                            <div class="w-full text-left p-3 rounded-xl border bg-primary/10 border-primary shadow-sm flex items-center gap-3 relative overflow-hidden">
+                                <div class="text-2xl bg-base-100 rounded-lg w-10 h-10 flex items-center justify-center shadow-sm">
+                                    {challengeItem.icon || '📜'}
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="font-bold text-sm truncate">{$_(challengeItem.title)}</div>
+                                    <div class="text-xs opacity-60 truncate">{$_(challengeItem.description)}</div>
+                                </div>
+                                <div class="badge badge-sm badge-primary">
+                                    {challengeItem.points} pts
+                                </div>
+                                <div class="absolute inset-0 border-2 border-primary rounded-xl pointer-events-none"></div>
+                            </div>
+                        {/if}
+                    </div>
+
+                    <div>
+                        <h4 class="text-sm font-semibold mb-2 opacity-70 flex items-center gap-2">
+                             <span>✍️</span> {$_(I18N.home.custom_message)}
+                        </h4>
+                        <textarea
+                            class="textarea textarea-bordered h-24 w-full focus:textarea-primary transition-all"
+                            placeholder={$_(I18N.home.message_placeholder)}
+                            bind:value={customMessage}
+                        ></textarea>
+                        <div class="label">
+                            <span class="label-text-alt opacity-50">{$_(I18N.home.personal_touch_phrase)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-action">
+                    <button class="btn btn-primary w-full gap-2 shadow-lg shadow-primary/20" onclick={generateChallengeLink}>
+                        <span>🚀</span> {$_(I18N.home.create_link)}
+                    </button>
+                </div>
+            {:else}
+                <ChallengeShareActions
+                    on:showQr={handleShowQrFromShareActions}
+                    on:shareViaApp={handleShareViaAppFromShareActions}
+                    on:cancel={closeChallengeModal}
+                />
+            {/if}
         </div>
         <form method="dialog" class="modal-backdrop">
-            <button onclick={() => isChallengeModalOpen = false}>close</button>
+            <button onclick={closeChallengeModal}>{$_(I18N.common.close)}</button>
+        </form>
+    </dialog>
+
+    <!-- General QR Code Display Modal -->
+    <dialog class="modal modal-bottom sm:modal-middle" open={isShowQrModalOpen}>
+        <div class="modal-box flex flex-col items-center">
+            <h3 class="font-bold text-lg text-center mb-4">{qrCodeTitle}</h3>
+            <div class="p-4 bg-white rounded-xl shadow-lg">
+                {#if isShowQrModalOpen && qrCodeValue}
+                    <QrCode data={qrCodeValue} size={250} />
+                {/if}
+            </div>
+            <div class="modal-action">
+                <button class="btn" onclick={closeShareChallengeFlow}>{$_(I18N.common.cancel)}</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button onclick={closeShareChallengeFlow}>{$_(I18N.common.cancel)}</button>
         </form>
     </dialog>
 </div>

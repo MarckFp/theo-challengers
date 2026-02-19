@@ -20,30 +20,15 @@ export async function createChallengeLink(
     currentUser: Player, 
     item: Inventory, 
     customMessage: string
-): Promise<string | null> {
+): Promise<{ id: string; link: string } | null> {
     if (!currentUser?.id || !item?.id) return null;
 
     const uniqueId = crypto.randomUUID();
 
-    // 1. Save locally as pending
-    await db.sentChallenge.add({
-        uuid: uniqueId,
-        playerId: currentUser.id!,
-        title: item.title,
-        description: item.description,
-        points: item.points,
-        message: customMessage,
-        createdAt: new Date(),
-        status: 'pending'
-    });
-
-    // 2. Remove from inventory
-    await db.inventory.delete(item.id!);
-    
-    // 3. Get Gossip Data
+    // Generate draft only. Commit happens when user actually shares.
     const gossip = await getGossipData();
 
-    // 4. Generate Link Payload
+    // Generate Link Payload
     const payload = {
         type: 'theo-challenge-req-v1',
         id: uniqueId,
@@ -61,10 +46,55 @@ export async function createChallengeLink(
     try {
         const jsonPayload = JSON.stringify(payload);
         const base64 = btoa(jsonPayload);
-        return `${window.location.origin}?challenge=${base64}`;
+        return {
+            id: uniqueId,
+            link: `${window.location.origin}?challenge=${base64}`
+        };
     } catch (err) {
         console.error("Link generation failed", err);
         return null;
+    }
+}
+
+export async function commitChallengeLink(
+    currentUser: Player,
+    item: Inventory,
+    customMessage: string,
+    challengeId: string
+): Promise<boolean> {
+    if (!currentUser?.id || !item?.id || !challengeId) return false;
+
+    const existing = await db.sentChallenge.where('uuid').equals(challengeId).first();
+    if (!existing) {
+        await db.sentChallenge.add({
+            uuid: challengeId,
+            playerId: currentUser.id!,
+            title: item.title,
+            description: item.description,
+            points: item.points,
+            message: customMessage,
+            createdAt: new Date(),
+            status: 'pending'
+        });
+    }
+
+    await db.inventory.delete(item.id);
+    return true;
+}
+
+export async function rollbackChallengeLink(
+    item: Inventory,
+    challengeId: string
+): Promise<void> {
+    if (challengeId) {
+        await db.sentChallenge.where('uuid').equals(challengeId).delete();
+    }
+
+    if (!item.id) return;
+
+    const inventoryItem = await db.inventory.get(item.id);
+    if (!inventoryItem) {
+        await db.inventory.put(item);
     }
 }
 

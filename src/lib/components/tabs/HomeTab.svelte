@@ -10,6 +10,7 @@
     import { useInventory } from '$lib/stores/inventory.svelte';
     import { 
         createChallengeLink, 
+        commitChallengeLink,
         processIncomingChallengeLink, 
         generateVerificationLink,
         verifyClaimCode as serviceVerifyClaim,
@@ -20,6 +21,7 @@
     // Components
     import QrCode from '$lib/components/QrCode.svelte';
     import QrScanner from '$lib/components/QrScanner.svelte';
+    import ChallengeShareActions from '$lib/components/ChallengeShareActions.svelte';
 
     // State
     const userStore = useUser();
@@ -40,6 +42,8 @@
     let selectedItemId = $state<number | null>(null);
     let customMessage = $state('');
     let generatedShareLink = $state<string | null>(null);
+    let generatedChallengeId = $state<string | null>(null);
+    let isChallengeCommitted = $state(false);
     
     // Pending claim request info (for Receiver)
     let pendingClaimRequest = $state<{id: string, from: string, item: any, message?: string} | null>(null);
@@ -180,9 +184,17 @@
     function closeSendModal() {
         isSendModalOpen = false;
         generatedShareLink = null;
+        generatedChallengeId = null;
+        isChallengeCommitted = false;
         selectedItemId = null;
         customMessage = '';
         (document.getElementById('send_challenge_modal') as HTMLDialogElement)?.close();
+    }
+
+    function closeShareChallengeFlow() {
+        isShowQrModalOpen = false;
+        (document.getElementById('show_qr_modal') as HTMLDialogElement)?.close();
+        closeSendModal();
     }
     
     function closeClaimModal() {
@@ -196,9 +208,80 @@
         const item = inventory.find(i => i.id === selectedItemId);
         if (!item) return;
 
-        const link = await createChallengeLink(currentUser, item, customMessage);
-        if (link) {
-            generatedShareLink = link;
+        const draft = await createChallengeLink(currentUser, item, customMessage);
+        if (draft) {
+            generatedShareLink = draft.link;
+            generatedChallengeId = draft.id;
+            isChallengeCommitted = false;
+        }
+    }
+
+    async function commitChallengeIfNeeded() {
+        if (isChallengeCommitted) return true;
+        if (!currentUser || !selectedItemId || !generatedChallengeId) return false;
+
+        const item = inventory.find(i => i.id === selectedItemId);
+        if (!item) return false;
+
+        const committed = await commitChallengeLink(currentUser, item, customMessage, generatedChallengeId);
+        if (committed) {
+            isChallengeCommitted = true;
+        }
+        return committed;
+    }
+
+    function resolveGeneratedShareLink(): string {
+        if (typeof generatedShareLink === 'string') return generatedShareLink;
+        if (generatedShareLink && typeof generatedShareLink === 'object' && 'link' in (generatedShareLink as any)) {
+            return String((generatedShareLink as any).link ?? '');
+        }
+        return '';
+    }
+
+    async function handleShowQrFromShareActions() {
+        const shareLink = resolveGeneratedShareLink();
+        if (!shareLink) return;
+        const committed = await commitChallengeIfNeeded();
+        if (!committed) return;
+        showQr($_(I18N.home.show_qr), shareLink);
+    }
+
+    async function handleShareViaAppFromShareActions() {
+        if (!generatedChallengeId || !selectedItemId || !currentUser) return;
+        const shareLink = resolveGeneratedShareLink();
+        if (!shareLink) return;
+
+        const item = inventory.find(i => i.id === selectedItemId);
+        if (!item) return;
+
+        if (!navigator.share) {
+            const committed = await commitChallengeIfNeeded();
+            if (!committed) return;
+            showQr($_(I18N.home.show_qr), shareLink);
+            return;
+        }
+
+        const itemTitle = item.title ?? '';
+        try {
+            await navigator.share({
+                title: $_(I18N.home.share_challenge_title),
+                text: $_(I18N.home.share_challenge_text, { values: { item: itemTitle ? $_(itemTitle) : '' } }),
+                url: shareLink
+            });
+            const committed = await commitChallengeIfNeeded();
+            if (committed) {
+                closeShareChallengeFlow();
+            }
+        } catch (error: any) {
+            if (error?.name === 'AbortError') {
+                return;
+            } else {
+                console.error(error);
+                const committed = await commitChallengeIfNeeded();
+                if (committed) {
+                    showQr($_(I18N.home.show_qr), shareLink);
+                }
+            }
         }
     }
     
@@ -344,8 +427,8 @@
             <div class="card-body">
                 <h2 class="card-title">{$_(I18N.home.welcome, { values: { user: currentUser?.nickname || 'Player' } })}</h2>
                 <p>{$_(I18N.home.ready_msg)}</p>
-                <div class="card-actions justify-end gap-2">
-                    <button class="btn btn-primary btn-sm" onclick={openSendModal}>{$_(I18N.home.send_challenge)}</button>
+                <div class="mt-3">
+                    <button class="btn btn-primary w-full" onclick={openSendModal}>{$_(I18N.home.send_challenge)}</button>
                 </div>
             </div>
         </div>
@@ -485,7 +568,7 @@
                             bind:value={customMessage}
                         ></textarea>
                          <div class="label">
-                            <span class="label-text-alt opacity-50">Optional: Add a personal touch!</span>
+                            <span class="label-text-alt opacity-50">{$_(I18N.home.personal_touch_phrase)}</span>
                         </div>
                     </div>
                 </div>
@@ -499,60 +582,11 @@
                     </button>
                 </div>
             {:else}
-                <div class="flex flex-col items-center justify-center py-6 gap-4">
-                    <div class="w-full">
-                        <p class="text-sm text-center mb-2">{$_(I18N.home.share_link)}</p>
-                        
-                        <!-- Show QR code option -->
-                        <div class="flex justify-center mb-4">
-                            <button class="btn btn-outline btn-neutral btn-sm gap-2" onclick={() => showQr('Challenge Link', generatedShareLink!)}>
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
-                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.5h.75v.75h-.75v-.75ZM16.5 6.75h.75v.75h-.75v-.75ZM13.5 13.5h.75v.75h-.75v-.75ZM13.5 19.5h.75v.75h-.75v-.75ZM19.5 13.5h.75v.75h-.75v-.75ZM19.5 19.5h.75v.75h-.75v-.75ZM16.5 16.5h.75v.75h-.75v-.75Z" />
-                                </svg>
-                                Show QR
-                            </button>
-                        </div>
-
-                        <div class="join w-full">
-                            <input type="text" value={generatedShareLink} readonly class="input input-bordered input-sm join-item w-full text-xs" />
-                            <button class="btn btn-sm btn-primary join-item" onclick={() => {
-                                if (generatedShareLink) {
-                                    copyToClipboard(generatedShareLink, 'challenge-link');
-                                }
-                            }}>
-                                {#if copiedState === 'challenge-link'}
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                                {:else}
-                                    {$_(I18N.home.copy_btn)}
-                                {/if}
-                            </button>
-                        </div>
-                         <button class="btn btn-sm btn-outline w-full mt-2" onclick={() => {
-                             if (navigator.share && generatedShareLink) {
-                                 const itemTitle = inventory.find(i => i.id === selectedItemId)?.title || selectedItemId;
-                                 navigator.share({
-                                     title: $_(I18N.home.share_challenge_title),
-                                     text: $_(I18N.home.share_challenge_text, { values: { item: $_(itemTitle) } }),
-                                     url: generatedShareLink
-                                 });
-                             } else if (generatedShareLink) {
-                                 copyToClipboard(generatedShareLink, 'challenge-share-fallback');
-                             }
-                         }}>
-                            {#if copiedState === 'challenge-share-fallback'}
-                                {$_(I18N.home.link_copied)} ✅
-                            {:else}
-                                {$_(I18N.home.share_via_app)} 🔗
-                            {/if}
-                         </button>
-                    </div>
-
-                    <button class="btn btn-ghost btn-xs mt-4" onclick={() => {
-                        generatedShareLink = null;
-                        selectedItemId = null;
-                    }}>{$_(I18N.home.create_another_link)}</button>
-                </div>
+                <ChallengeShareActions
+                    on:showQr={handleShowQrFromShareActions}
+                    on:shareViaApp={handleShareViaAppFromShareActions}
+                    on:cancel={closeSendModal}
+                />
                  
             {/if}
         </div>
@@ -678,15 +712,14 @@
                     <QrCode data={qrCodeValue} size={250} />
                 {/if}
             </div>
-            <p class="py-4 text-center text-xs opacity-70 break-all">{qrCodeValue}</p>
             <div class="modal-action">
                 <form method="dialog">
-                    <button class="btn" onclick={() => isShowQrModalOpen = false}>Close</button>
+                    <button class="btn" onclick={closeShareChallengeFlow}>{$_(I18N.common.cancel)}</button>
                 </form>
             </div>
         </div>
         <form method="dialog" class="modal-backdrop">
-            <button onclick={() => isShowQrModalOpen = false}>close</button>
+            <button onclick={closeShareChallengeFlow}>{$_(I18N.common.cancel)}</button>
         </form>
     </dialog>
 
