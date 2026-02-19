@@ -100,7 +100,7 @@ jobs:
           releaseName: ${{ github.ref_name }}
           releaseDraft: false
           prerelease: false
-          args: ${{ matrix.args }}
+          args: ${{ matrix.settings.args }}
 
   deploy-linux:
     name: ${{ matrix.settings.name }}
@@ -178,7 +178,7 @@ jobs:
           releaseDraft: false
           prerelease: false
           mobile: 'android'
-          args: ${{ matrix.args }}
+          args: ${{ matrix.settings.args }}
 
   deploy-ios:
     name: 'iOS 🍏'
