@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.marckfp.theo_challengers",
+      "sha256_cert_fingerprints": [
+        "BF:5F:36:BA:64:31:08:BF:DE:61:16:40:FA:79:A0:51:6E:72:C2:2E:31:D6:24:EC:32:69:14:A5:AE:04:81:05"
+      ]
+    }
+  }
+]

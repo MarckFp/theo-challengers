@@ -5,6 +5,27 @@ import type { Inventory } from '$lib/models/inventory';
 import type { Challenge } from '$lib/models/challenge';
 import { getGossipData, processGossip } from './leaderboard';
 
+function getShareLinkBase(): string {
+    const configuredBase = (
+        import.meta.env.PUBLIC_URL_BASE_LINK ??
+        import.meta.env.PUBLIC_CHALLENGE_LINK_BASE
+    )?.trim();
+    if (configuredBase) return configuredBase;
+
+    const currentOrigin = window.location.origin;
+    if (currentOrigin.includes('tauri.localhost')) {
+        return 'theochallengers://challenge';
+    }
+
+    return currentOrigin;
+}
+
+function buildShareLink(paramName: string, encodedPayload: string): string {
+    const url = new URL(getShareLinkBase());
+    url.searchParams.set(paramName, encodedPayload);
+    return url.toString();
+}
+
 // Helper to update leaderboard when interacting with peers
 export async function updatePeerScore(nickname: string, score: number) {
     // Deprecated in favor of processGossip, but kept for compatibility
@@ -48,7 +69,7 @@ export async function createChallengeLink(
         const base64 = btoa(jsonPayload);
         return {
             id: uniqueId,
-            link: `${window.location.origin}?challenge=${base64}`
+            link: buildShareLink('challenge', base64)
         };
     } catch (err) {
         console.error("Link generation failed", err);
@@ -150,7 +171,7 @@ export async function verifyClaimCode(
         };
 
         const confirmB64 = btoa(JSON.stringify(authPayload));
-        const link = `${window.location.origin}?finalize=${confirmB64}`;
+        const link = buildShareLink('finalize', confirmB64);
         
         return { success: true, authRawLink: link };
 
@@ -209,7 +230,7 @@ export async function generateVerificationLink(challenge: Challenge, currentUser
         gossip: gossip
     };
     const claimB64 = btoa(JSON.stringify(claimPayload));
-    return `${window.location.origin}?verify_claim=${claimB64}`;
+    return buildShareLink('verify_claim', claimB64);
 }
 
 export async function finalizeChallengeClaim(authData: any, currentUser: Player) {

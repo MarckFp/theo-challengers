@@ -4,6 +4,7 @@
     import type { Inventory } from '$lib/models/inventory';
     import type { Challenge } from '$lib/models/challenge';
     import { _ } from 'svelte-i18n';
+    import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
     
     // Services & Stores
     import { useUser } from '$lib/stores/user.svelte';
@@ -74,40 +75,49 @@
         isScannerOpen = false;
         (document.getElementById('scanner_modal') as HTMLDialogElement)?.close();
 
-        // Detect type of link
         try {
-            const url = new URL(decodedText);
-            const params = new URLSearchParams(url.search);
-            
-            if (params.has('challenge')) {
-                // Incoming Challenge
-                const challengeData = params.get('challenge');
-                if (challengeData) {
-                    const json = atob(challengeData);
-                    const data = JSON.parse(json);
-                    handleIncomingShare(data);
-                }
-            } else if (params.has('verify_claim')) {
-                 // Verify Claim (Sender)
-                 const verifyData = params.get('verify_claim');
-                 if (verifyData) {
-                    pendingVerificationId = verifyData; 
-                    openVerifyModal();
-                 }
-            } else if (params.has('finalize')) {
-                 // Finalize (Receiver)
-                 const finalizeData = params.get('finalize');
-                 if (finalizeData) {
-                     const json = atob(finalizeData);
-                     const data = JSON.parse(json);
-                     finalizeClaim(data);
-                 }
-            } else {
+            if (!handleIncomingUrl(decodedText)) {
                 alert("Unknown QR Code format");
             }
+        } catch (error) {
+             alert("Invalid QR Code: " + error);
+        }
+    }
+
+    function handleIncomingUrl(rawUrl: string): boolean {
+        if (!currentUser?.id) return false;
+
+        try {
+            const url = new URL(rawUrl);
+            const params = new URLSearchParams(url.search);
+
+            const challengeData = params.get('challenge');
+            if (challengeData) {
+                const json = atob(challengeData);
+                const data = JSON.parse(json);
+                handleIncomingShare(data);
+                return true;
+            }
+
+            const verifyData = params.get('verify_claim');
+            if (verifyData) {
+                pendingVerificationId = verifyData;
+                openVerifyModal();
+                return true;
+            }
+
+            const finalizeData = params.get('finalize');
+            if (finalizeData) {
+                const json = atob(finalizeData);
+                const data = JSON.parse(json);
+                finalizeClaim(data);
+                return true;
+            }
+
+            return false;
         } catch (e) {
-            // Might be a raw code if we supported that, but we use URLs mainly
-             alert("Invalid QR Code: " + e);
+            console.error('Invalid incoming URL', e);
+            return false;
         }
     }
 
@@ -129,39 +139,37 @@
 
     // Check for incoming challenge/verify/finalize via URL (Page Load)
     $effect(() => {
-        const params = new URLSearchParams(window.location.search);
-        
-        // 1. Challenge Link (Receiver opens)
-        const challengeData = params.get('challenge');
-        if (challengeData && currentUser?.id) {
-             try {
-                 const json = atob(challengeData);
-                 const data = JSON.parse(json);
-                 handleIncomingShare(data);
-                 window.history.replaceState({}, document.title, window.location.pathname);
-             } catch (e) { console.error("Invalid challenge link", e); }
+        if (handleIncomingUrl(window.location.href)) {
+            window.history.replaceState({}, document.title, window.location.pathname);
         }
+    });
 
-        // 2. Verify Link (Sender opens)
-        const verifyData = params.get('verify_claim');
-        if (verifyData && currentUser?.id) {
-            try {
-                pendingVerificationId = verifyData; 
-                openVerifyModal();
-                window.history.replaceState({}, document.title, window.location.pathname);
-            } catch (e) { console.error("Invalid verify link", e); }
-        }
+    // Deep links while app is running (Tauri mobile/desktop)
+    $effect(() => {
+        if (!currentUser?.id) return;
 
-        // 3. Finalize Link (Receiver opens)
-        const finalizeData = params.get('finalize');
-        if (finalizeData && currentUser?.id) {
+        let unlisten: (() => void) | undefined;
+
+        (async () => {
             try {
-                const json = atob(finalizeData);
-                const data = JSON.parse(json);
-                finalizeClaim(data);
-                window.history.replaceState({}, document.title, window.location.pathname);
-            } catch (e) { console.error("Invalid finalize link", e); }
-        }
+                unlisten = await onOpenUrl((payload: any) => {
+                    const urls = Array.isArray(payload) ? payload : payload?.urls;
+                    if (!Array.isArray(urls)) return;
+
+                    for (const incomingUrl of urls) {
+                        if (handleIncomingUrl(incomingUrl)) {
+                            break;
+                        }
+                    }
+                });
+            } catch {
+                // Not running in Tauri or deep-link plugin unavailable in this environment.
+            }
+        })();
+
+        return () => {
+            unlisten?.();
+        };
     });
 
     function openSendModal() {
