@@ -210,6 +210,10 @@ jobs:
             -e 's/DEVELOPMENT_TEAM = [A-Z0-9]*;/DEVELOPMENT_TEAM = "";/g' \
             -e 's/CODE_SIGNING_REQUIRED = YES/CODE_SIGNING_REQUIRED = NO/g' \
             -e 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g'
+      - name: Build Rust for iOS
+        run: |
+          cd src-tauri
+          cargo build --release --target aarch64-apple-ios
       - name: Build unsigned IPA
         run: |
           cd src-tauri/gen/apple
