@@ -200,21 +200,24 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
+      - name: Install CocoaPods
+        run: sudo gem install cocoapods
+      - name: Generate Xcode project & install pods
+        run: |
+          bun run tauri ios init
+          cd src-tauri/gen/apple
+          pod install
       - name: Disable code signing in Xcode project
         run: |
-          cd src-tauri/gen/apple
-          # Patch every pbxproj to disable signing
-          find . -name "*.pbxproj" | xargs sed -i '' \
-            's/CODE_SIGN_IDENTITY = ".*"/CODE_SIGN_IDENTITY = ""/g'
-          find . -name "*.pbxproj" | xargs sed -i '' \
-            's/DEVELOPMENT_TEAM = [^;]*/DEVELOPMENT_TEAM = ""/g'
-          find . -name "*.pbxproj" | xargs perl -i -pe \
-            's/CODE_SIGNING_REQUIRED = YES/CODE_SIGNING_REQUIRED = NO/g'
-          find . -name "*.pbxproj" | xargs perl -i -pe \
-            's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g'
-          # Add explicit no-signing settings if not present
-          find . -name "*.pbxproj" | xargs perl -i -pe \
-            's/(ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES)/CODE_SIGNING_ALLOWED = NO;\n\t\t\t\t$1/g'
+          find src-tauri/gen/apple -name "*.pbxproj" | xargs sed -i '' \
+            -e 's/CODE_SIGN_IDENTITY = ".*"/CODE_SIGN_IDENTITY = ""/g' \
+            -e 's/DEVELOPMENT_TEAM = [A-Z0-9]*;/DEVELOPMENT_TEAM = "";/g' \
+            -e 's/CODE_SIGNING_REQUIRED = YES/CODE_SIGNING_REQUIRED = NO/g' \
+            -e 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g'
+      - name: Build Rust for iOS
+        run: |
+          cd src-tauri
+          cargo build --release --target aarch64-apple-ios
       - name: Build unsigned IPA
         run: |
           cd src-tauri/gen/apple
@@ -229,7 +232,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="" \
             archive
-          # Package into IPA
+          
           mkdir -p $RUNNER_TEMP/Payload
           cp -r "$RUNNER_TEMP/theo-challengers.xcarchive/Products/Applications/"*.app \
             "$RUNNER_TEMP/Payload/"
