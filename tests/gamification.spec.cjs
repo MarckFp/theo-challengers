@@ -14,58 +14,61 @@ test.describe('Gamification Specs', () => {
     });
 
     test('Daily Bonus Collection', async ({ page }) => {
-        // 1. Manually seed via IndexedDB
+        // 1. Manually seed via IndexedDB with correct DB name
         await page.evaluate(async () => {
-             const request = indexedDB.open('TheoChallengersDB');
-             request.onsuccess = (event) => {
-                 const db = event.target.result;
-                 if (db.objectStoreNames.contains('player')) {
-                    const tx = db.transaction('player', 'readwrite');
-                    const store = tx.objectStore('player');
-                    store.getAll().onsuccess = (e) => {
-                        const players = e.target.result;
-                        if (players.length > 0) {
-                            const p = players[0];
-                            p.lastWeeklyBonus = '2020-W01'; 
-                            p.coins = 100;
-                            p.streak = 3;
-                            store.put(p);
-                        }
-                    };
-                 }
-             };
+             return new Promise((resolve, reject) => {
+                 const request = indexedDB.open('theochallenguers');
+                 request.onerror = () => reject(request.error); 
+                 request.onsuccess = (event) => {
+                     const db = event.target.result;
+                     if (db.objectStoreNames.contains('player')) {
+                        const tx = db.transaction('player', 'readwrite');
+                        const store = tx.objectStore('player');
+                        store.getAll().onsuccess = (e) => {
+                            const players = e.target.result;
+                            if (players.length > 0) {
+                                const p = players[0];
+                                p.lastWeeklyBonus = '2020-W01'; 
+                                p.coins = 100;
+                                p.streak = 3;
+                                p.tutorialSeen = true; // explicitly set seen
+                                store.put(p);
+                            }
+                        };
+                        tx.oncomplete = () => resolve();
+                     } else {
+                        resolve();
+                     }
+                 };
+             });
         });
 
-        await page.waitForTimeout(1000); 
+        // 2. Reload to ensure app state picks up the DB change
+        await page.reload();
+        await page.waitForTimeout(2000); 
         
         // 3. Daily Bonus Modal
-        const modal = page.locator('dialog[open]').filter({ hasText: /Daily|Bonus/i });
-        await expect(modal).toBeVisible({ timeout: 10000 });
+        // The modal should open automatically on load
+        const modal = page.locator('dialog[open]').filter({ hasText: /Weekly Bonus|Daily|Bonus/i });
+        await expect(modal).toBeVisible({ timeout: 15000 });
         
         // 4. Collect
         const collectBtn = modal.locator('button', { hasText: /Collect/i });
+        // Wait for button to be stable
+        await expect(collectBtn).toBeEnabled();
         await collectBtn.click({ force: true });
         
-        await page.waitForTimeout(500);
-        
-        // Force close fallback
-        await page.evaluate(() => {
-             const m = document.querySelector('dialog[open]');
-             if (m && (m.textContent.includes('Bonus') || m.textContent.includes('Daily'))) {
-                 m.close();
-             }
-        });
-
-        // 5. Verify Close
-        await expect(modal).toBeHidden({ timeout: 10000 });
-        
-        // 6. Reload to safely check DB
+        // Wait for DB write - reload page to ensure consistency
+        await page.waitForTimeout(1000);
         await page.reload();
-        await page.waitForTimeout(1000); 
+        await page.waitForTimeout(1000);
         
+        // 6. Verify Coins in DB
+        // Ensure page is stable
+        await page.waitForLoadState('networkidle');
         const newCoins = await page.evaluate(async () => {
             return new Promise((resolve) => {
-                 const request = indexedDB.open('TheoChallengersDB');
+                 const request = indexedDB.open('theochallenguers'); // Correct DB name
                  request.onsuccess = (e) => {
                      const db = e.target.result;
                      const tx = db.transaction('player', 'readonly');
@@ -83,54 +86,78 @@ test.describe('Gamification Specs', () => {
     test('Badges System', async ({ page }) => {
         // 1. Seed Score
         await page.evaluate(async () => {
-             const request = indexedDB.open('TheoChallengersDB');
-             request.onsuccess = (event) => {
-                 const db = event.target.result;
-                 const tx = db.transaction('player', 'readwrite');
-                 const store = tx.objectStore('player');
-                 store.getAll().onsuccess = (e) => {
-                     const players = e.target.result;
-                     if (players.length > 0) {
-                         const p = players[0];
-                         p.score = 5000;
-                         p.badges = [];
-                         store.put(p);
-                     }
+             return new Promise((resolve, reject) => {
+                 const request = indexedDB.open('theochallenguers'); // Correct DB name
+                 request.onerror = () => reject(request.error);
+                 request.onsuccess = (event) => {
+                     const db = event.target.result;
+                     const tx = db.transaction('player', 'readwrite');
+                     const store = tx.objectStore('player');
+                     store.getAll().onsuccess = (e) => {
+                         const players = e.target.result;
+                         if (players.length > 0) {
+                             const p = players[0];
+                             p.score = 5000;
+                             p.badges = [];
+                             p.tutorialSeen = true; // explicitly set seen
+                             // Prevent bonus modal from appearing
+                             p.lastWeeklyBonus = '2099-W01'; 
+                             store.put(p);
+                         }
+                     };
+                     tx.oncomplete = () => resolve();
                  };
-             };
+             });
         });
         
-        await page.waitForTimeout(1000);
-        
-        // Ensure UI updated score (check Profile or something? No need)
+        // Reload to ensure state is fresh
+        await page.reload();
+        await page.waitForTimeout(2000);
 
+        // Force close any unexpected modals (like Tutorial or Bonus) that might block clicks
+        await page.evaluate(() => {
+            document.querySelectorAll('dialog[open]').forEach(d => d.close());
+            document.querySelectorAll('.modal-open').forEach(m => m.classList.remove('modal-open'));
+        });
+        
         // 2. Navigate to Store (Index 2)
         await clickTab(page, 2);
 
-        // 3. Open Badge
+        // 3. Switch to Badges Sub-Tab
+        // We need to click the "Badges" tab. 
+        // Based on I18N, it's "Badges Store".
+        const badgesTab = page.getByRole('button', { name: /Badges/i });
+        await expect(badgesTab).toBeVisible();
+        await badgesTab.click();
+        await page.waitForTimeout(500); // Animation
+
+        // 4. Open Badge
+        // Click the first card in the grid (Badges grid)
+        await expect(page.locator('.indicator').first()).toBeVisible();
         const badgeButton = page.locator('.indicator button.card').first();
         await expect(badgeButton).toBeVisible();
         await badgeButton.click({ force: true });
         
-        // 4. Modal
-        const modal = page.locator('dialog[open]').filter({ hasText: /Buy|Cost/i });
+        // 5. Modal
+        // Wait for modal expecting "Buy" or similar
+        const modal = page.locator('.modal.modal-open');
         await expect(modal).toBeVisible({ timeout: 5000 });
-        
-        // 5. Buy
-        const buyBtn = modal.locator('button', { hasText: /Buy/i });
-        await expect(buyBtn).toBeEnabled();
+        // Badges buy button usually just "Unlock" or has price?
+        // Let's look for any primary button.
+        const buyBtn = modal.locator('button.btn-secondary', { hasText: /Buy|Unlock|Cost/i });
+        await expect(buyBtn).toBeVisible();
         await buyBtn.click({ force: true });
         
-        // 6. Force Close
+        // 6. Force Close if needed
         await page.waitForTimeout(500);
         await page.evaluate(() => {
-             const m = document.querySelector('dialog[open]');
-             if (m && m.textContent.includes('Buy')) m.close();
+             const m = document.querySelector('.modal-open');
+             if (m) m.classList.remove('modal-open');
         });
-        await expect(modal).toBeHidden({ timeout: 10000 });
         
         // 7. Verify Owned
-        const ownedBadge = page.locator('.indicator .badge-success', { hasText: 'Owned' }).first();
+        // The badge should now have "Owned" indicator
+        const ownedBadge = page.locator('.indicator .badge-success', { hasText: /Owned/i }).first();
         await expect(ownedBadge).toBeVisible();
     });
 

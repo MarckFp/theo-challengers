@@ -38,13 +38,13 @@ jobs:
           command: pages deploy .svelte-kit/cloudflare --project-name=theo-challengers
 
   deploy-windows:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.settings.name }}
     permissions:
       contents: write
       discussions: write
     environment:
       name: production
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.settings.platform }}
     strategy:
       fail-fast: false
       matrix:
@@ -69,7 +69,7 @@ jobs:
           prerelease: false
 
   deploy-macos:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.settings.name }}
     permissions:
       contents: write
       discussions: write
@@ -103,13 +103,13 @@ jobs:
           args: ${{ matrix.args }}
 
   deploy-linux:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.settings.name }}
     permissions:
       contents: write
       discussions: write
     environment:
       name: production
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.settings.platform }}
     strategy:
       fail-fast: false
       matrix:
@@ -137,7 +137,7 @@ jobs:
           prerelease: false
 
   deploy-android:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.settings.name }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
