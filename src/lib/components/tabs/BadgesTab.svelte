@@ -16,23 +16,43 @@
     let viewingBadge = $state<any>(null);
     let isViewModalOpen = $state(false);
 
+    let shakingBadge = $state<string | null>(null);
+
+    function triggerShake(id: string) {
+        shakingBadge = id;
+        setTimeout(() => shakingBadge = null, 500);
+    }
+    
     async function buyBadge(badge: any) {
         if (!player || !player.id) return;
+        
         const cost = badge.cost;
-        if ((player.score || 0) < cost) {
-            alert($_(I18N.store.not_enough_points_error));
+        const currentScore = player.score || 0;
+
+        if (currentScore < cost) {
+            triggerShake(badge.id); // Feedback for failure
             return;
         }
 
-        if (confirm($_(I18N.badges.confirm_buy, { values: { cost } }))) {
-            const currentBadges = player.badges || [];
-            await db.player.update(player.id, {
-                score: player.score - cost,
-                badges: [...currentBadges, badge.id]
-            });
-            alert($_(I18N.store.purchased));
-            isViewModalOpen = false;
+        // Check if already owned (double safety, though UI disables button)
+        if (ownedBadges.includes(badge.id)) {
+            return; 
         }
+
+        try {
+             // 1. DEDUCT POINTS & ADD BADGE
+             const newScore = currentScore - cost;
+             if (newScore < 0) return;
+             
+             const currentBadges = player.badges || [];
+             await db.player.update(player.id, {
+                score: newScore,
+                badges: [...currentBadges, badge.id]
+             });
+             
+             triggerShake(badge.id); // Success feedback
+             isViewModalOpen = false;
+        } catch (e) { console.error(e); }
     }
 </script>
 
@@ -47,7 +67,7 @@
     <div class="grid grid-cols-2 gap-3">
         {#each catalog as badge}
             {@const isOwned = ownedBadges.includes(badge.id)}
-            <div class="indicator w-full">
+            <div class="indicator w-full" class:shake={shakingBadge === badge.id}>
                 {#if isOwned}
                     <span class="indicator-item badge badge-success badge-sm top-2 right-2">Owned</span>
                 {/if}
@@ -86,8 +106,8 @@
                 <h3 class="font-bold text-2xl text-center">{$_(viewingBadge.name)}</h3>
                 <p class="py-4 text-center text-base opacity-80 leading-relaxed">{$_(viewingBadge.description)}</p>
                 
-                <div class="flex justify-center gap-4 text-xs font-bold uppercase tracking-widest opacity-60 mb-6">
-                    <div class="badge badge-lg badge-outline badge-secondary gap-1">
+                <div class="flex flex-wrap justify-center gap-2 sm:gap-4 text-[10px] sm:text-xs font-bold uppercase tracking-wide sm:tracking-widest opacity-60 mb-6">
+                    <div class="badge badge-md sm:badge-lg badge-outline badge-secondary gap-1 whitespace-normal text-center h-auto py-1">
                         {$_(I18N.store.cost)}: {viewingBadge.cost} 🏆
                     </div>
                 </div>

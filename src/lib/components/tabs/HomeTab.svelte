@@ -438,45 +438,71 @@
             </h3>
             
             {#if !generatedShareLink}
-                <p class="py-4 text-sm text-center text-base-content/70">{$_(I18N.home.select_challenge_subtitle)}</p>
-                <div class="form-control w-full gap-4">
-                    <!-- Select Item -->
+                <div class="py-4 space-y-4">
+                    <!-- Step 1: Select Challenge -->
                     <div>
-                        <label class="label">
-                            <span class="label-text">{$_(I18N.home.select_challenge_title)}</span>
-                        </label>
-                        <select class="select select-bordered w-full" bind:value={selectedItemId}>
-                            <option disabled selected value={null}>{$_(I18N.home.select_challenge_title)}</option>
-                            {#each inventory as item}
-                                <option value={item.id}>{item.icon || '📜'} {$_(item.title)} ({item.points} pts)</option>
-                            {/each}
-                        </select>
+                        <h4 class="text-sm font-semibold mb-2 opacity-70 flex items-center gap-2">
+                             <span>🎯</span> {$_(I18N.home.select_challenge_title)}
+                        </h4>
+                        
                         {#if inventory.length === 0}
-                            <div class="label">
-                                <span class="label-text-alt text-warning">{$_(I18N.inventory.empty)}</span>
+                            <div class="alert alert-warning text-xs shadow-sm">
+                                <span>{$_(I18N.inventory.empty)}</span>
+                            </div>
+                        {:else}
+                            <div class="max-h-48 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                        {#each inventory as item}
+                            {#if item.id !== undefined}
+                                <button 
+                                    class="w-full text-left p-3 rounded-xl border transition-all duration-200 flex items-center gap-3 relative overflow-hidden group
+                                    {selectedItemId === item.id 
+                                        ? 'bg-primary/10 border-primary shadow-sm' 
+                                        : 'bg-base-100 border-base-200 hover:border-primary/50 hover:bg-base-200'}"
+                                    onclick={() => selectedItemId = item.id!}
+                                >
+                                    <div class="text-2xl bg-base-100 rounded-lg w-10 h-10 flex items-center justify-center shadow-sm">
+                                        {item.icon || '📜'}
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="font-bold text-sm truncate">{$_(item.title)}</div>
+                                        <div class="text-xs opacity-60 truncate">{$_(item.description)}</div>
+                                    </div>
+                                    <div class="badge badge-sm" class:badge-primary={selectedItemId === item.id} class:badge-ghost={selectedItemId !== item.id}>
+                                        {item.points} pts
+                                    </div>
+                                    
+                                    {#if selectedItemId === item.id}
+                                        <div class="absolute inset-0 border-2 border-primary rounded-xl pointer-events-none"></div>
+                                    {/if}
+                                </button>
+                            {/if}
+                        {/each}
                             </div>
                         {/if}
                     </div>
 
-                    <!-- Custom Message -->
+                    <!-- Step 2: Custom Message -->
                     <div>
-                        <label class="label">
-                            <span class="label-text">{$_(I18N.home.custom_message)}</span>
-                        </label>
+                        <h4 class="text-sm font-semibold mb-2 opacity-70 flex items-center gap-2">
+                             <span>✍️</span> {$_(I18N.home.custom_message)}
+                        </h4>
                         <textarea 
-                            class="textarea textarea-bordered h-24 w-full" 
+                            class="textarea textarea-bordered h-24 w-full focus:textarea-primary transition-all" 
                             placeholder={$_('home.message_placeholder')}
                             bind:value={customMessage}
                         ></textarea>
+                         <div class="label">
+                            <span class="label-text-alt opacity-50">Optional: Add a personal touch!</span>
+                        </div>
                     </div>
                 </div>
 
                 <div class="modal-action">
                     <button 
-                        class="btn btn-primary w-full"
+                        class="btn btn-primary w-full gap-2 shadow-lg shadow-primary/20"
                         onclick={generateChallengeLink}
                         disabled={!selectedItemId}>
-                        {$_(I18N.home.create_link)}
+                        <span>🚀</span> {$_(I18N.home.create_link)}
                     </button>
                 </div>
             {:else}

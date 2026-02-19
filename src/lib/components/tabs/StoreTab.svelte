@@ -59,34 +59,63 @@
         } catch (e) { console.error(e); }
     }
 
+    // Shake Logic
+    let shakingItem = $state<string | null>(null);
+    function triggerShake(id: string) {
+        // Find if it's item or badge...
+        // For items we use title as ID mostly in this primitive store logic?
+        // Or index? The item object passed needs an ID.
+        // Let's use whatever identifier we have.
+        shakingItem = id;
+        setTimeout(() => shakingItem = null, 500);
+    } 
+
     async function handleBuyItem(item: any) {
          if (!player?.id) return;
-         if (coins < item.cost) { alert($_(I18N.store.not_enough_coins)); return; }
-         if (inventoryItemsCount >= 3) { alert($_(I18N.store.inventory_full)); return; }
+         if (coins < item.cost) { 
+             triggerShake(item.title); 
+             return; 
+         }
+         
+         if (inventoryItemsCount >= 3) {
+             triggerShake(item.title);
+             return;
+         }
 
-         if (confirm($_(I18N.store.buy_confirm, { values: { item: $_(item.title), cost: item.cost } }))) {
-              try {
-                await db.inventory.add({
-                    player_id: player.id!,
-                    title: item.title,
-                    description: item.description,
-                    points: item.points,
-                    cost: item.cost,
-                    icon: item.icon || '📦'
-                });
-                
-                // Update player coins and mark item as purchased
-                const newShopItems = (player.shopItems || []).map((i: any) => 
-                   i.title === item.title ? { ...i, purchased: true } : i
-                );
-    
-                await db.player.update(player.id, {
-                    coins: coins - item.cost,
-                    shopItems: newShopItems
-                });
-                alert($_(I18N.store.purchased));
-                isViewModalOpen = false;
-             } catch (e) { console.error(e); }
+         try {
+             // 1. DEDUCT COINS & UPDATE STORE STATE
+            const newCoins = coins - item.cost;
+            if (newCoins < 0) return;
+
+             const newShopItems = (player.shopItems || []).map((i: any) => {
+                 // Clone to avoid proxy issues with Dexie
+                 if (i.title === item.title) {
+                     return { ...i, purchased: true };
+                 } 
+                 return { ...i };
+            });
+
+            await db.player.update(player.id, {
+                coins: newCoins,
+                shopItems: newShopItems
+            });
+
+             // 2. ADD TO INVENTORY
+            await db.inventory.add({
+                player_id: player.id!,
+                title: item.title,
+                description: item.description,
+                points: item.points,
+                cost: item.cost,
+                icon: item.icon || '📦'
+            });
+
+            // Success feedback
+            triggerShake(item.title); 
+            isViewModalOpen = false;
+
+         } catch (e) { 
+             console.error(e); 
          }
     }
 
@@ -169,17 +198,17 @@
                     <div class="grid grid-cols-2 gap-3">
                         {#if player?.shopItems?.length}
                             {#each player.shopItems as item}
-                                <div class="indicator w-full"> 
+                                <div class="indicator w-full" class:shake={shakingItem === item.title}> 
                                     {#if item.purchased}
-                                        <span class="indicator-item badge badge-secondary badge-md top-2 right-2 rotate-12 font-bold shadow-sm">Out</span>
+                                        <span class="indicator-item badge badge-secondary badge-md top-2 right-2 rotate-12 font-bold shadow-sm">{$_(I18N.store.sold_out)}</span>
                                     {/if}
                                     <button 
                                         class="card bg-base-200 hover:bg-base-300 transition-colors cursor-pointer w-full border border-base-300 relative aspect-square"
                                         class:opacity-50={item.purchased}
                                         disabled={item.purchased}
                                         onclick={() => {
-                                            viewingItem = item;
-                                            isViewModalOpen = true;
+                                             viewingItem = item;
+                                             isViewModalOpen = true;
                                         }}
                                     >
                                         <div class="card-body p-2 flex flex-col items-center justify-center text-center gap-2">
@@ -216,11 +245,11 @@
                     <h3 class="font-bold text-lg text-center">{$_(viewingItem.title)}</h3>
                     <p class="py-4 text-center text-sm opacity-80">{$_(viewingItem.description)}</p>
                     
-                    <div class="flex justify-center gap-4 text-xs font-bold uppercase tracking-widest opacity-60 mb-6">
-                        <div class="badge badge-lg badge-outline gap-1">
+                    <div class="flex flex-wrap justify-center gap-2 sm:gap-4 text-[10px] sm:text-xs font-bold uppercase tracking-wide sm:tracking-widest opacity-60 mb-6">
+                        <div class="badge badge-md sm:badge-lg badge-outline gap-1 whitespace-normal text-center h-auto py-1">
                             {$_(I18N.store.reward)}: {viewingItem.points} 🏆
                         </div>
-                        <div class="badge badge-lg badge-outline gap-1">
+                        <div class="badge badge-md sm:badge-lg badge-outline gap-1 whitespace-normal text-center h-auto py-1">
                             {$_(I18N.store.cost)}: {viewingItem.cost} 🪙
                         </div>
                     </div>
@@ -229,11 +258,13 @@
                         <button class="btn btn-outline" onclick={() => isViewModalOpen = false}>{$_(I18N.common.cancel)}</button>
                         <button 
                             class="btn btn-primary" 
-                            disabled={viewingItem.purchased || coins < viewingItem.cost}
+                            disabled={viewingItem.purchased || coins < viewingItem.cost || inventoryItemsCount >= 3}
                             onclick={() => handleBuyItem(viewingItem)}
                         >
                              {#if viewingItem.purchased}
                                 {$_(I18N.store.sold_out)}
+                             {:else if inventoryItemsCount >= 3}
+                                {$_(I18N.store.inventory_full)}
                              {:else if coins < viewingItem.cost}
                                 {$_(I18N.store.need, { values: { cost: viewingItem.cost - coins } })}
                              {:else}

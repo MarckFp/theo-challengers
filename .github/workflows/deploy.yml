@@ -38,15 +38,23 @@ jobs:
           command: pages deploy .svelte-kit/cloudflare --project-name=theo-challengers
 
   deploy-windows:
-    name: Windows 🪟
+    name: ${{ matrix.name }}
     permissions:
       contents: write
       discussions: write
     environment:
       name: production
-    runs-on: windows-latest
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - name: 'Windows 🪟'
+            platform: 'windows-2025-vs2026'
+          - name: 'Windows ARM🪟'
+            platform: 'windows-11-arm'
     steps:
-      - uses: actions/checkout@v6 
+      - uses: actions/checkout@v6
       - name: Setup Project
         uses: ./.github/actions/setup-project
         with:
@@ -61,13 +69,21 @@ jobs:
           prerelease: false
 
   deploy-macos:
-    name: MacOS 🍏
+    name: ${{ matrix.name }}
     permissions:
       contents: write
       discussions: write
     environment:
       name: production
-    runs-on: macos-latest
+    runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - name: 'MacOS ARM🍏'
+            args: '--target aarch64-apple-darwin'
+          - name: 'MacOS Intel🍏'
+            args: '--target x86_64-apple-darwin'
     steps:
       - uses: actions/checkout@v6
       - name: Setup Project
@@ -84,16 +100,24 @@ jobs:
           releaseName: ${{ github.ref_name }}
           releaseDraft: false
           prerelease: false
-          args: --target universal-apple-darwin
+          args: ${{ matrix.args }}
 
   deploy-linux:
-    name: Linux 🐧
+    name: ${{ matrix.name }}
     permissions:
       contents: write
       discussions: write
     environment:
       name: production
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - name: 'Linux AMD🐧'
+            platform: 'ubuntu-24.04'
+          - name: 'Linux ARM🐧'
+            platform: 'ubuntu-24.04-arm'
     steps:
       - uses: actions/checkout@v6
       - name: Setup Project
@@ -113,12 +137,20 @@ jobs:
           prerelease: false
 
   deploy-android:
-    name: 'Android 🤖'
-    runs-on: ubuntu-latest
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     environment:
       name: production
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - name: 'Android APK🤖'
+            args: '--apk'
+          - name: 'Android AAB🤖'
+            args: '--aab'
     steps:
       - uses: actions/checkout@v6
       - name: Setup Project
@@ -146,6 +178,7 @@ jobs:
           releaseDraft: false
           prerelease: false
           mobile: 'android'
+          args: ${{ matrix.args }}
 
   deploy-ios:
     name: 'iOS 🍏'
