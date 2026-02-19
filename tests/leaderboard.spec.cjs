@@ -17,21 +17,22 @@ test.describe('Leaderboard', () => {
         
         await page.waitForTimeout(500); 
 
-        // 1. Go to Leaderboard (Tab index 4)
-        await clickTab(page, 4);
+        // 1. Go to Leaderboard (Tab index 1)
+        await clickTab(page, 1);
         
         // Debugging: Wait a bit for transition
         await page.waitForTimeout(1000);
         
         // Ensure "Leaderboard" text is visible on the page
-        await expect(page.getByText('Leaderboard').first()).toBeVisible();
+        // Use heading role to avoid matching tutorial text
+        await expect(page.getByRole('heading', { name: /Leaderboard/i }).first()).toBeVisible();
 
         // 2. Mock Data
         // Since we can't control the cloud backend in these local tests, we'll verify the component structure
         // If there are entries, they should appear as list items
         
         // Verify loading state or list
-        const list = page.locator('ul');
+        const list = page.locator('table');
         await expect(list).toBeVisible(); 
         
         // Check if user's own entry is highlighted or present (if cloud sync enabled/mocked)
