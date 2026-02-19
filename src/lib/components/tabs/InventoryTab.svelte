@@ -6,6 +6,8 @@
     import { useUser } from '$lib/stores/user.svelte';
     import { I18N } from '$lib/i18n-keys';
 
+    import { createChallengeLink } from '$lib/services/challenge';
+
     const userStore = useUser();
     let player = $derived(userStore.value);
     
@@ -13,6 +15,11 @@
 
     let isDeleteModalOpen = $state(false);
     let itemToDelete = $state<Inventory | null>(null);
+
+    // Challenge Modal State
+    let isChallengeModalOpen = $state(false);
+    let challengeLink = $state('');
+    let challengeItem = $state<Inventory | null>(null);
 
     // View Modal State
     let isViewModalOpen = $state(false);
@@ -48,6 +55,17 @@
             itemToDelete = null;
         } catch (e) {
             console.error('Failed to remove item', e);
+        }
+    }
+
+    async function handleShareChallenge(item: Inventory) {
+        if (!item) return;
+        const link = await createChallengeLink(player!, item, "Let's play!");
+        if (link) {
+            challengeLink = link;
+            challengeItem = item;
+            isChallengeModalOpen = true;
+            isViewModalOpen = false;
         }
     }
 </script>
@@ -139,6 +157,15 @@
                     <div class="divider my-0"></div>
 
                     <div class="flex w-full gap-2">
+                        <button 
+                            class="btn btn-primary flex-1 shadow-lg shadow-primary/20"
+                            onclick={() => handleShareChallenge(viewingItem!)}
+                        >
+                             🚀 {$_(I18N.inventory.challenge_btn || 'Challenge!')}
+                        </button>
+                    </div>
+
+                    <div class="flex w-full gap-2">
                          <button class="btn btn-outline btn-error flex-1" onclick={() => { isViewModalOpen = false; initiateDelete(viewingItem!); }}>
                                 {$_(I18N.inventory.remove_title)}
                         </button>
@@ -152,4 +179,29 @@
         <form method="dialog" class="modal-backdrop">
             <button onclick={() => isViewModalOpen = false}>{$_(I18N.common.close)}</button>
         </form>
-    </dialog></div>
+    </dialog>
+    
+    <!-- Challenge Link Modal -->
+    <dialog class="modal modal-bottom sm:modal-middle" class:modal-open={isChallengeModalOpen}>
+        <div class="modal-box text-center">
+             <h3 class="font-bold text-lg text-secondary">Ready to Challenge!</h3>
+             <p class="py-4">Share this link with your friend:</p>
+             <div class="bg-base-200 p-2 rounded-lg break-all text-xs mb-4 select-all font-mono">
+                {challengeLink}
+             </div>
+             <p class="text-xs text-base-content/50 mb-4">(In real app, just share this!)</p>
+             <div class="modal-action justify-center">
+                 <button class="btn btn-primary w-full" onclick={() => {
+                     navigator.clipboard.writeText(challengeLink);
+                     alert("Copied!");
+                     isChallengeModalOpen = false;
+                 }}>
+                    📋 Copy Link
+                 </button>
+             </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button onclick={() => isChallengeModalOpen = false}>close</button>
+        </form>
+    </dialog>
+</div>
