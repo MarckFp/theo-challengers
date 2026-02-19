@@ -1,6 +1,7 @@
 <script lang="ts">
     import { db } from '$lib/db';
     import { useUser } from '$lib/stores/user.svelte';
+    import { useShake } from '$lib/utils/ui.svelte';
     import { BADGES_CATALOG } from '$lib/data/badges';
     import { _ } from 'svelte-i18n';
     import { I18N } from '$lib/i18n-keys';
@@ -16,11 +17,11 @@
     let viewingBadge = $state<any>(null);
     let isViewModalOpen = $state(false);
 
-    let shakingBadge = $state<string | null>(null);
+    const shake = useShake();
+    let shakingBadge = $derived(shake.activeId);
 
     function triggerShake(id: string) {
-        shakingBadge = id;
-        setTimeout(() => shakingBadge = null, 500);
+        shake.trigger(id);
     }
     
     async function buyBadge(badge: any) {

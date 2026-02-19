@@ -5,8 +5,17 @@
     import { onMount } from 'svelte';
     import '$lib/i18n'; // Initialize i18n
     import { isLoading } from 'svelte-i18n';
+    import { useUser } from '$lib/stores/user.svelte';
+    import { initInventory } from '$lib/stores/inventory.svelte';
 
-    $: webManifestLink = pwaInfo ? pwaInfo.webManifest.linkTag : ''
+    // Global Stores Setup
+    const user = useUser();
+    
+    $effect(() => {
+        initInventory(user.value?.id);
+    });
+
+    let webManifestLink = $derived(pwaInfo ? pwaInfo.webManifest.linkTag : '');
 
     onMount(() => {
         const savedTheme = localStorage.getItem('theme') || 'dark';

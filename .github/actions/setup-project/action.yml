@@ -7,7 +7,7 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - uses: oven-sh/setup-bun@main
+    - uses: oven-sh/setup-bun@v2
     - shell: bash
       run: bun install
     - shell: bash

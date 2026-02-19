@@ -9,7 +9,6 @@
     import { _ } from 'svelte-i18n';
     import { useUser } from '$lib/stores/user.svelte';
     import { I18N } from '$lib/i18n-keys';
-    import TutorialModal from './TutorialModal.svelte';
 
     type Tab = 'home' | 'leaderboard' | 'store' | 'inventory' | 'profile';
     
@@ -18,23 +17,15 @@
     
     let activeTab = $state<Tab>('home');
     let isDailyBonusOpen = $state(false);
-    let isTutorialOpen = $state(false);
     
     // We only want to trigger tutorial once per load if needed.
-    let tutorialCheckDone = false;
+    // Logic moved to Landing.svelte
 
     let currentStreak = $derived(player?.streak || 0);
 
     $effect(() => {
         if (!player) return;
         
-        // Check for tutorial
-        if (!tutorialCheckDone && (player.tutorialSeen === false || player.tutorialSeen === undefined)) {
-            // Need to ensure we don't open if we're currently in 'Store' or other tabs? No, landing into Home is fine.
-            setTimeout(() => isTutorialOpen = true, 500);
-            tutorialCheckDone = true;
-        }
-
         // 1. Monthly Reset Logic
         const today = new Date();
         const currentMonthId = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
@@ -211,13 +202,4 @@
         </div>
         <!-- No backdrop click to close, must collect -->
     </dialog>
-    
-    <TutorialModal 
-        bind:open={isTutorialOpen} 
-        onComplete={() => {
-            if (player?.id) {
-                db.player.update(player.id, { tutorialSeen: true });
-            }
-        }}
-    />
 </div>

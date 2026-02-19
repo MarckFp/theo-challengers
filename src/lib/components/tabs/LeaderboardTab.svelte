@@ -45,7 +45,7 @@
                             <td class="text-center font-bold text-lg text-primary">{i + 1}</td>
                             <td>
                                 <div class="font-bold">{entry.nickname}</div>
-                                <div class="text-[10px] opacity-50">{$_(I18N.leaderboard.updated)}: {new Date(entry.updated_at).toLocaleDateString()}</div>
+                                <div class="text-[10px] opacity-50">{$_(I18N.leaderboard.updated)}: {new Date(entry.updatedAt).toLocaleDateString()}</div>
                             </td>
                             <td class="text-right font-mono font-bold text-success">{entry.score}</td>
                         </tr>

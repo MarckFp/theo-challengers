@@ -12,7 +12,20 @@
 	let nickname = $state('');
     let error = $state('');
     let loading = $state(false);
-    let isTutorialOpen = $state(false);
+    let isTutorialOpen = $state(false); // Controlled by localStorage
+
+    $effect(() => {
+        const seen = localStorage.getItem('tutorial-seen');
+        if (!seen) {
+             // Only show after a slight delay
+             setTimeout(() => isTutorialOpen = true, 500);
+        }
+    });
+
+    function closeTutorial() {
+        isTutorialOpen = false;
+        localStorage.setItem('tutorial-seen', 'true');
+    }
 
 	async function handleSubmit(event?: Event) {
         if(event) event.preventDefault();
@@ -34,7 +47,7 @@
                 score: 0,
                 lastShopUpdate: '',
                 shopItems: [],
-                tutorialSeen: false
+                tutorialSeen: true
             });
 
             // Notify parent
@@ -99,11 +112,9 @@
         <div class="text-xs text-base-content/30 font-medium tracking-wide">
             {$_('landing.press_enter')}
         </div>
-	</div>
-    
-    <TutorialModal bind:open={isTutorialOpen} onClose={() => isTutorialOpen = false} />
+    </div>
 
-```
+    <TutorialModal bind:open={isTutorialOpen} onClose={closeTutorial} onComplete={closeTutorial} />
 
     <dialog id="guide_modal" class="modal modal-bottom sm:modal-middle">
         <div class="modal-box">

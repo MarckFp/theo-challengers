@@ -13,7 +13,7 @@ test.describe('Gamification Specs', () => {
         await page.waitForTimeout(500);
     });
 
-    test('Daily Bonus Collection', async ({ page }) => {
+    test('Weekly Bonus Collection', async ({ page }) => {
         // 1. Manually seed via IndexedDB with correct DB name
         await page.evaluate(async () => {
              return new Promise((resolve, reject) => {
@@ -47,7 +47,7 @@ test.describe('Gamification Specs', () => {
         await page.reload();
         await page.waitForTimeout(2000); 
         
-        // 3. Daily Bonus Modal
+        // 3. Weekly Bonus Modal
         // The modal should open automatically on load
         const modal = page.locator('dialog[open]').filter({ hasText: /Weekly Bonus|Daily|Bonus/i });
         await expect(modal).toBeVisible({ timeout: 15000 });

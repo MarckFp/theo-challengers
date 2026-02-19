@@ -4,6 +4,8 @@
     import { liveQuery } from 'dexie';
     import { _ } from 'svelte-i18n';
     import { useUser } from '$lib/stores/user.svelte';
+    import { useInventory } from '$lib/stores/inventory.svelte';
+    import { useShake } from '$lib/utils/ui.svelte';
     import { I18N } from '$lib/i18n-keys';
     import { fade } from 'svelte/transition';
     import { CHALLENGES_CATALOG } from '$lib/data/challenges';
@@ -16,7 +18,8 @@
     let activeSection = $state<StoreSection>('items');
 
     // --- ITEM STORE LOGIC ---
-    let inventoryItemsCount = $state(0);
+    const inventoryStore = useInventory();
+    let inventoryItemsCount = $derived(inventoryStore.count);
     let isRefreshConfirmOpen = $state(false);
     let viewingItem = $state<any>(null);
     let isViewModalOpen = $state(false); 
@@ -24,12 +27,7 @@
     let coins = $derived(player?.coins ?? 0);
     let score = $derived(player?.score ?? 0);
     
-    // Inventory Check
-    $effect(() => {
-        if (!player?.id) return;
-        liveQuery(() => db.inventory.where('player_id').equals(player.id!).count())
-            .subscribe(count => inventoryItemsCount = count);
-    });
+
 
     // Daily Shop Refresh Logic
     $effect(() => {
@@ -46,7 +44,7 @@
             const shuffled = [...all].sort(() => 0.5 - Math.random()).slice(0, 4);
             
             // Check owned
-            const inventory = await db.inventory.where('player_id').equals(playerId).toArray();
+            const inventory = await db.inventory.where('playerId').equals(playerId).toArray();
             const newItems = shuffled.map((item: any) => {
                  const isOwned = inventory.some(i => i.title === item.title);
                  return { ...item, purchased: isOwned }; 
@@ -60,15 +58,12 @@
     }
 
     // Shake Logic
-    let shakingItem = $state<string | null>(null);
+    const shake = useShake();
+    let shakingItem = $derived(shake.activeId);
+    
     function triggerShake(id: string) {
-        // Find if it's item or badge...
-        // For items we use title as ID mostly in this primitive store logic?
-        // Or index? The item object passed needs an ID.
-        // Let's use whatever identifier we have.
-        shakingItem = id;
-        setTimeout(() => shakingItem = null, 500);
-    } 
+        shake.trigger(id);
+    }
 
     async function handleBuyItem(item: any) {
          if (!player?.id) return;
@@ -102,11 +97,12 @@
 
              // 2. ADD TO INVENTORY
             await db.inventory.add({
-                player_id: player.id!,
+                playerId: player.id!,
                 title: item.title,
                 description: item.description,
                 points: item.points,
                 cost: item.cost,
+                reward: item.reward || 0,
                 icon: item.icon || '📦'
             });
 

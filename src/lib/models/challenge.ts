@@ -1,12 +1,12 @@
-export interface Challengue {
+export interface Challenge {
     id?: number
     uuid?: string // Unique ID from sender
-    player_id: number
+    playerId: number
     title: string
     description: string
     points: number
     reward: number
-    completed_at?: Date
-    from_player?: string
+    completedAt?: Date
+    fromPlayer?: string
     message?: string
 }

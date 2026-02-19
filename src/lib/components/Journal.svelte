@@ -14,9 +14,9 @@
     $effect(() => {
         if (!player?.id) return;
         const sub = liveQuery(async () => {
-             const items = await db.challengue
-                .where('player_id').equals(player.id!)
-                .filter(c => c.completed_at !== undefined && c.completed_at !== null)
+             const items = await db.challenge
+                .where('playerId').equals(player.id!)
+                .filter(c => c.completedAt !== undefined && c.completedAt !== null)
                 .reverse()
                 .limit(20)
                 .toArray();
@@ -78,10 +78,10 @@
                                     <div class="font-bold truncate max-w-[120px]" title={item.title}>{$_(item.title)}</div>
                                 </td>
                                 <td>
-                                    <div class="badge badge-ghost badge-sm">{item.from_player || 'Unknown'}</div>
+                                    <div class="badge badge-ghost badge-sm">{item.fromPlayer || 'Unknown'}</div>
                                 </td>
                                 <td class="text-right text-success font-bold">+{item.points}</td>
-                                <td class="text-right opacity-70 text-[10px]">{formatDate(item.completed_at)}</td>
+                                <td class="text-right opacity-70 text-[10px]">{formatDate(item.completedAt)}</td>
                             </tr>
                         {/each}
                     </tbody>

@@ -1,6 +1,6 @@
 export interface Inventory {
     id?: number
-    player_id: number
+    playerId: number
     title: string
     description: string
     points: number

@@ -2,16 +2,14 @@
 import { db } from '$lib/db';
 import type { Player } from '$lib/models/player';
 import type { Inventory } from '$lib/models/inventory';
-import type { Challengue } from '$lib/models/challengue';
-import { get } from 'svelte/store';
-import { _ } from 'svelte-i18n';
+import type { Challenge } from '$lib/models/challenge';
 import { getGossipData, processGossip } from './leaderboard';
 
 // Helper to update leaderboard when interacting with peers
 export async function updatePeerScore(nickname: string, score: number) {
     // Deprecated in favor of processGossip, but kept for compatibility
     if (!nickname || score === undefined) return;
-    await processGossip({ gossip: [{ nickname, score, updated_at: new Date() }] }, null);
+    await processGossip({ gossip: [{ nickname, score, updatedAt: new Date() }] }, null);
 }
 
 // ----------------------------------------------------
@@ -30,12 +28,12 @@ export async function createChallengeLink(
     // 1. Save locally as pending
     await db.sentChallenge.add({
         uuid: uniqueId,
-        player_id: currentUser.id!,
+        playerId: currentUser.id!,
         title: item.title,
         description: item.description,
         points: item.points,
         message: customMessage,
-        created_at: new Date(),
+        createdAt: new Date(),
         status: 'pending'
     });
 
@@ -99,7 +97,7 @@ export async function verifyClaimCode(
         // Mark Accepted
         await db.sentChallenge.update(challenge.id!, {
             status: 'accepted',
-            claimed_by: data.claimer
+            claimedBy: data.claimer
         });
 
         // Get Gossip
@@ -144,7 +142,7 @@ export async function processIncomingChallengeLink(data: any, currentUser: Playe
         throw new Error('store.accept_own_error');
     }
 
-    const existing = await db.challengue.where('uuid').equals(data.id).first();
+    const existing = await db.challenge.where('uuid').equals(data.id).first();
     if (existing) {
         throw new Error('store.already_accepted_error');
     }
@@ -158,20 +156,20 @@ export async function processIncomingChallengeLink(data: any, currentUser: Playe
 export async function acceptChallenge(challengeData: any, currentUser: Player) {
     if (!currentUser?.id) return;
     
-    await db.challengue.add({
+    await db.challenge.add({
         uuid: challengeData.id,
-        player_id: currentUser.id!,
+        playerId: currentUser.id!,
         title: challengeData.item.title,
         description: challengeData.item.description,
         points: challengeData.item.points,
         reward: challengeData.item.points, // Simplified reward logic
-        from_player: challengeData.from,
+        fromPlayer: challengeData.from,
         message: challengeData.message,
         // created_at missing in type but nice to have
     });
 }
 
-export async function generateVerificationLink(challenge: Challengue, currentUser: Player): Promise<string> {
+export async function generateVerificationLink(challenge: Challenge, currentUser: Player): Promise<string> {
     const gossip = await getGossipData();
     const claimPayload = {
         type: 'theo-claim-v1',
@@ -189,9 +187,9 @@ export async function finalizeChallengeClaim(authData: any, currentUser: Player)
         throw new Error('Invalid Authorization Key');
     }
 
-    const existing = await db.challengue.where('uuid').equals(authData.cid).first();
+    const existing = await db.challenge.where('uuid').equals(authData.cid).first();
     if (!existing) throw new Error('store.challenge_not_found_error');
-    if (existing.completed_at) throw new Error('store.already_achievement_error');
+    if (existing.completedAt) throw new Error('store.already_achievement_error');
 
     // Process gossip
     await processGossip(authData, currentUser);
@@ -201,8 +199,8 @@ export async function finalizeChallengeClaim(authData: any, currentUser: Player)
     const isStreakBonus = currentStreak >= 3;
     const multiplier = isStreakBonus ? 2 : 1;
 
-    await db.challengue.update(existing.id!, {
-        completed_at: new Date()
+    await db.challenge.update(existing.id!, {
+        completedAt: new Date()
     });
 
     await db.player.update(currentUser.id!, {

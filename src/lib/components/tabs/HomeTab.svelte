@@ -2,11 +2,12 @@
     import { db } from '$lib/db';
     import { liveQuery } from 'dexie';
     import type { Inventory } from '$lib/models/inventory';
-    import type { Challengue } from '$lib/models/challengue';
+    import type { Challenge } from '$lib/models/challenge';
     import { _ } from 'svelte-i18n';
     
     // Services & Stores
     import { useUser } from '$lib/stores/user.svelte';
+    import { useInventory } from '$lib/stores/inventory.svelte';
     import { 
         createChallengeLink, 
         processIncomingChallengeLink, 
@@ -24,8 +25,9 @@
     const userStore = useUser();
     let currentUser = $derived(userStore.value);
     
-    let inventory = $state<Inventory[]>([]);
-    let activeChallenges = $state<Challengue[]>([]);
+    const inventoryStore = useInventory();
+    let inventory = $derived(inventoryStore.value);
+    let activeChallenges = $state<Challenge[]>([]);
     
     // Modal State
     let isSendModalOpen = $state(false);
@@ -105,24 +107,15 @@
         }
     }
 
-    // Fetch Inventory for Current User
-    $effect(() => {
-        if (!currentUser?.id) return;
-        const subscription = liveQuery(() => 
-            db.inventory.where('player_id').equals(currentUser.id!).toArray()
-        ).subscribe(result => {
-            inventory = result;
-        });
-        return () => subscription.unsubscribe();
-    });
+
 
     // Fetch Active Challenges
     $effect(() => {
         if (!currentUser?.id) return;
         const subscription = liveQuery(() => 
-            db.challengue
-                .where('player_id').equals(currentUser.id!)
-                .filter(c => c.completed_at === undefined || c.completed_at === null)
+            db.challenge
+                .where('playerId').equals(currentUser.id!)
+                .filter(c => c.completedAt === undefined || c.completedAt === null)
                 .toArray()
         ).subscribe(result => {
             activeChallenges = result;
@@ -230,14 +223,14 @@
         if (!pendingClaimRequest || !currentUser?.id) return;
         
         try {
-             await db.challengue.add({
+             await db.challenge.add({
                 uuid: pendingClaimRequest.id,
-                player_id: currentUser.id!,
-                title: pendingClaimRequest.item.title,
-                description: pendingClaimRequest.item.description,
-                points: pendingClaimRequest.item.points,
-                reward: pendingClaimRequest.item.points,
-                from_player: pendingClaimRequest.from,
+                playerId: currentUser.id!,
+                title: pendingClaimRequest.item?.title,
+                description: pendingClaimRequest.item?.description,
+                points: pendingClaimRequest.item?.points,
+                reward: pendingClaimRequest.item?.points,
+                fromPlayer: pendingClaimRequest.from,
                 message: pendingClaimRequest.message,
             });
             
@@ -262,7 +255,7 @@
         }
     }
 
-    async function generateVerificationLinkForActive(challenge: Challengue) {
+    async function generateVerificationLinkForActive(challenge: Challenge) {
          if (!currentUser) return;
          
          const link = await generateVerificationLink(challenge, currentUser);
@@ -403,7 +396,7 @@
                         {#if challenge.message}
                             <p class="text-xs text-base-content/60 mt-1 italic">"{challenge.message}"</p>
                         {/if}
-                        <p class="text-[10px] text-base-content/50 mt-1">From: {challenge.from_player || 'System'}</p>
+                        <p class="text-[10px] text-base-content/50 mt-1">From: {challenge.fromPlayer || 'System'}</p>
                     </div>
                     <div class="flex-none flex flex-col gap-2">
                         <!-- Send Proof Button -->

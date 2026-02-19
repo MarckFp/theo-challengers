@@ -1,41 +1,27 @@
-import Dexie, {type Table} from 'dexie'
-import type {Player} from './models/player'
-import type {Leaderboard} from './models/leaderboard'
-import type {Inventory} from './models/inventory'
-import type {Challengue} from './models/challengue'
-import type {SentChallenge} from './models/sentChallenge'
+import Dexie, {type Table} from 'dexie';
+import type {Player} from './models/player';
+import type {Leaderboard} from './models/leaderboard';
+import type {Inventory} from './models/inventory';
+import type {Challenge} from './models/challenge';
+import type {SentChallenge} from './models/sentChallenge';
 
-export class MyDatabaseDexie extends Dexie {
-    player!: Table<Player>
-    leaderboard!: Table<Leaderboard>
-    inventory!: Table<Inventory>
-    challengue!: Table<Challengue>
-    sentChallenge!: Table<SentChallenge>
+class MyDatabaseDexie extends Dexie {
+    player!: Table<Player>;
+    leaderboard!: Table<Leaderboard>;
+    inventory!: Table<Inventory>;
+    challenge!: Table<Challenge>;
+    sentChallenge!: Table<SentChallenge>;
 
     constructor() {
-        super('theochallenguers')
+        super('theochallengers'); // Correct DB name
         this.version(1).stores({
-            player: '++id, nickname',
-            leaderboard: '++id',
-            inventory: '++id, player_id',
-            challengue: '++id, player_id'
-        })
-        this.version(3).stores({
-            player: '++id, nickname, score', // Index score for leaderboard
-            inventory: '++id, player_id',
-            challengue: '++id, player_id'
-        })
-        this.version(4).stores({
-            player: '++id, nickname, score', // Index score for leaderboard
-            inventory: '++id, player_id',
-             challengue: '++id, player_id, uuid', // uuid index for preventing duplicates
-             sentChallenge: '++id, uuid, player_id',
-             leaderboard: '++id, &nickname' // Unique nickname for efficient updates
-        })
-        this.version(5).stores({
-            leaderboard: '++id, &nickname, score' // Index score for ordering
-        })
+            player: '++id, nickname, score', 
+            leaderboard: '++id, &nickname, score', // Indeces
+            inventory: '++id, playerId', // camelCase keys
+            challenge: '++id, playerId, uuid, fromPlayer, completedAt', 
+            sentChallenge: '++id, uuid, playerId, status'
+        });
     }
 }
 
-export const db = new MyDatabaseDexie()
+export const db = new MyDatabaseDexie();

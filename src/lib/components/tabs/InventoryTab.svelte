@@ -1,17 +1,18 @@
 <script lang="ts">
     import { db } from '$lib/db';
-    import { liveQuery } from 'dexie';
     import type { Inventory } from '$lib/models/inventory';
     import { _ } from 'svelte-i18n';
     import { useUser } from '$lib/stores/user.svelte';
+    import { useInventory } from '$lib/stores/inventory.svelte';
     import { I18N } from '$lib/i18n-keys';
 
     import { createChallengeLink } from '$lib/services/challenge';
 
     const userStore = useUser();
-    let player = $derived(userStore.value);
+    const inventoryStore = useInventory();
     
-    let inventoryItems = $state<Inventory[]>([]);
+    let player = $derived(userStore.value);
+    let inventoryItems = $derived(inventoryStore.value);
 
     let isDeleteModalOpen = $state(false);
     let itemToDelete = $state<Inventory | null>(null);
@@ -30,16 +31,7 @@
         isViewModalOpen = true;
     }
 
-    // Subscribe to inventory items
-    $effect(() => {
-        if (!player || !player.id) return;
-        const sub = liveQuery(() => 
-            db.inventory.where('player_id').equals(player!.id!).toArray()
-        ).subscribe(items => {
-            inventoryItems = items;
-        });
-        return () => sub.unsubscribe();
-    });
+    // Subscribe to inventory items removed as it is handled by inventoryStore
 
     function initiateDelete(item: Inventory) {
         itemToDelete = item;
