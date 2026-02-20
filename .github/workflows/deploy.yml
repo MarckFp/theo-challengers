@@ -206,13 +206,39 @@ jobs:
           xcode-version: latest-stable
       - name: Install CocoaPods
         run: sudo gem install cocoapods
-      - name: Disable code signing in Xcode project
+      - name: Neutralize Tauri build script phase in pbxproj
         run: |
-          find src-tauri/gen/apple -name "*.pbxproj" | xargs sed -i '' \
-            -e 's/CODE_SIGN_IDENTITY = ".*"/CODE_SIGN_IDENTITY = ""/g' \
-            -e 's/DEVELOPMENT_TEAM = [A-Z0-9]*;/DEVELOPMENT_TEAM = "";/g' \
-            -e 's/CODE_SIGNING_REQUIRED = YES/CODE_SIGNING_REQUIRED = NO/g' \
-            -e 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g'
+          python3 - <<'EOF'
+          import re, sys
+
+          path = "src-tauri/gen/apple/theo-challengers.xcodeproj/project.pbxproj"
+          with open(path, "r") as f:
+              content = f.read()
+
+          # Show current shellScript values containing xcode-script
+          matches = re.findall(r'shellScript = "([^"]*xcode-script[^"]*)"', content)
+          print(f"Found {len(matches)} script phase(s) to patch")
+          for m in matches:
+              print(f"  -> {m[:80]}...")
+
+          # Replace any shellScript containing xcode-script with a no-op
+          patched = re.sub(
+              r'(shellScript = ")[^"]*xcode-script[^"]*"',
+              r'\1echo \\"Rust build skipped\\"";',
+              content
+          )
+
+          # Also fix signing
+          patched = re.sub(r'CODE_SIGN_IDENTITY = "[^"]*"', 'CODE_SIGN_IDENTITY = ""', patched)
+          patched = re.sub(r'DEVELOPMENT_TEAM = [A-Z0-9]+;', 'DEVELOPMENT_TEAM = "";', patched)
+          patched = patched.replace('CODE_SIGNING_REQUIRED = YES', 'CODE_SIGNING_REQUIRED = NO')
+          patched = patched.replace('CODE_SIGNING_ALLOWED = YES', 'CODE_SIGNING_ALLOWED = NO')
+
+          with open(path, "w") as f:
+              f.write(patched)
+
+          print("Patched successfully")
+          EOF
       - name: Build Rust for iOS
         run: |
           cd src-tauri
