@@ -186,7 +186,7 @@ jobs:
           releaseAssetNamePattern: 'TheoChallengers-[platform]-[arch]-[version][ext]'
 
   ios:
-    name: 'iOS 🍏'
+    name: 'iOS 📱'
     runs-on: macos-latest
     permissions:
       contents: write
@@ -221,3 +221,69 @@ jobs:
           prerelease: false
           mobile: 'ios'
           args: '--export-method debugging'
+
+  release-notes:
+    name: 'Release Notes 📝'
+    runs-on: ubuntu-latest
+    needs:
+      - windows
+      - macos
+      - linux
+      - android
+      - ios
+    permissions:
+      contents: write
+    steps:
+      - name: Generate platform links
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          release_json="$(gh api "repos/${REPO}/releases/tags/${TAG}")"
+          release_url="$(echo "$release_json" | jq -r '.html_url')"
+          assets="$(echo "$release_json" | jq -r '.assets[].browser_download_url')"
+
+          pick_link() {
+            local regex="$1"
+            local found
+            found="$(echo "$assets" | grep -Ei "$regex" | head -n1 || true)"
+            if [ -n "$found" ]; then
+              echo "$found"
+            else
+              echo "$release_url"
+            fi
+          }
+
+          mac_arm="$(pick_link '(darwin|macos|apple-darwin).*(aarch64|arm64).*(dmg|app\.tar\.gz|pkg)$')"
+          mac_intel="$(pick_link '(darwin|macos|apple-darwin).*(x86_64|amd64).*(dmg|app\.tar\.gz|pkg)$')"
+          windows_x64="$(pick_link '(windows|pc-windows).*(x86_64|amd64).*(msi|exe|zip)$')"
+          windows_arm="$(pick_link '(windows|pc-windows).*(aarch64|arm64).*(msi|exe|zip)$')"
+          linux_x64="$(pick_link '(linux|unknown-linux).*(x86_64|amd64).*(appimage|deb|rpm|tar\.gz)$')"
+          linux_arm="$(pick_link '(linux|unknown-linux).*(aarch64|arm64).*(appimage|deb|rpm|tar\.gz)$')"
+          android_apk="$(pick_link '(android).*(apk)$')"
+          android_aab="$(pick_link '(android).*(aab)$')"
+          ios="$(pick_link '(ios|apple-ios).*(ipa|app|zip)$')"
+
+          cat > release-notes.md <<EOF
+          ## 📦 Downloads
+
+          - 🍎 [MacOS ARM](${mac_arm})
+          - 🍎 [MacOS Intel](${mac_intel})
+          - 🪟 [Windows x64](${windows_x64})
+          - 🪟 [Windows ARM](${windows_arm})
+          - 🐧 [Linux x64](${linux_x64})
+          - 🐧 [Linux ARM](${linux_arm})
+          - 🤖 [Android APK](${android_apk})
+          - 🤖 [Android AAB](${android_aab})
+          - 📱 [iOS](${ios})
+          EOF
+
+      - name: Update release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: gh release edit "$TAG" --repo "$REPO" --notes-file release-notes.md
