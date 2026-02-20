@@ -648,7 +648,7 @@
     </div>
 
     <!-- Stats/Welcome -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 gap-4">
         <div class="card bg-base-100 shadow-xl border border-base-200">
             <div class="card-body">
                 <h2 class="card-title">{$_(I18N.home.welcome, { values: { user: currentUser?.nickname || 'Player' } })}</h2>
@@ -659,7 +659,7 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-2 md:grid-cols-1 gap-4">
              <div class="stats shadow bg-base-100 border border-base-200 w-full">
                 <div class="stat p-3">
                     <div class="stat-figure text-secondary">

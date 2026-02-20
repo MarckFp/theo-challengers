@@ -158,10 +158,11 @@
         <div class="flex flex-col gap-6 w-full px-2">
             {#each tabs as tab}
                  <button 
-                    class="btn btn-ghost btn-square w-full rounded-xl transition-all {activeTab === tab.id ? 'bg-primary text-primary-content shadow-lg shadow-primary/30' : 'text-base-content/50 hover:bg-base-200'}"
+                    class="btn btn-ghost btn-square w-full rounded-xl transition-all tooltip tooltip-right {activeTab === tab.id ? 'bg-primary text-primary-content shadow-lg shadow-primary/30' : 'text-base-content/50 hover:bg-base-200'}"
                     onclick={() => handleTabChange(tab.id)}
                     aria-label={tab.label}
-                >   <div class="tooltip tooltip-right absolute inset-0 z-10" data-tip={tab.label}></div>
+                    data-tip={tab.label}
+                >
                     <svg xmlns="http://www.w3.org/2000/svg" fill={activeTab === tab.id ? "currentColor" : "none"} viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
                         {@html tab.icon}
                     </svg>
