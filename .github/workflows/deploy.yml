@@ -204,12 +204,15 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
-      - uses: tauri-apps/tauri-action@063c0231f444e55760d98acb9c469b994269d4a5
+      - name: Set up Unsigned behaviour
         env:
           APPLE_DEVELOPMENT_TEAM: "0000000000"
           CODE_SIGN_IDENTITY: ""
           CODE_SIGNING_REQUIRED: "NO"
           CODE_SIGNING_ALLOWED: "NO"
+        run: |
+          bun tauri ios init
+      - uses: tauri-apps/tauri-action@063c0231f444e55760d98acb9c469b994269d4a5
         with:
           tauriScript: 'bun run tauri'
           tagName: ${{ github.ref_name }}
