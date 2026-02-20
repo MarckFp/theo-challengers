@@ -278,13 +278,15 @@
             {#if player?.avatarImage}
                 <button class="btn btn-sm btn-ghost text-error" onclick={removeAvatar}>{$_(I18N.profile.remove_photo)}</button>
             {/if}
-            <input bind:this={avatarInputRef} type="file" accept="image/*" class="hidden" onchange={handleAvatarSelected} />
+            <input bind:this={avatarInputRef} id="profile-avatar-input" name="avatar" type="file" accept="image/*" class="hidden" onchange={handleAvatarSelected} />
         </div>
         
         {#if isEditingNickname}
             <div class="flex items-center gap-2">
                 <input 
                     type="text" 
+                    id="profile-nickname"
+                    name="nickname"
                     bind:value={newNickname} 
                     class="input input-sm input-bordered w-full max-w-xs text-center font-bold text-xl" 
                     autofocus
@@ -344,7 +346,7 @@
             <span class="label-text font-medium flex items-center gap-2 mb-2 px-1">
                 🌎 {$_(I18N.profile.language)}
             </span>
-             <select class="select select-bordered w-full" bind:value={currentLang} onchange={handleLangChange}>
+             <select id="profile-language" name="language" class="select select-bordered w-full" bind:value={currentLang} onchange={handleLangChange}>
                 <option value="en">English</option>
                 <option value="es">Español</option>
                 <option value="fr">Français</option>
@@ -361,7 +363,7 @@
                 </svg>
                 {$_(I18N.profile.theme)}
             </span>
-            <select class="select select-bordered w-full" bind:value={currentTheme} onchange={handleThemeChange}>
+            <select id="profile-theme" name="theme" class="select select-bordered w-full" bind:value={currentTheme} onchange={handleThemeChange}>
                 <option value="" disabled>Select Theme</option>
                 {#each themes as theme}
                     <option value={theme}>{theme.charAt(0).toUpperCase() + theme.slice(1)}</option>
@@ -391,7 +393,7 @@
                   <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 10.5 12 15m0 0 4.5-4.5M12 15V3" />
             </svg>
             {$_(I18N.profile.import_data)}
-            <input type="file" accept=".json" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange={handleImportData} />
+            <input id="profile-import-data" name="importData" type="file" accept=".json" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange={handleImportData} />
         </button>
 
          <div class="divider my-0"></div>

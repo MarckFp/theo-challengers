@@ -87,6 +87,8 @@
                 <!-- Cleaner input with floating label feel or minimal style -->
                 <input 
                     type="text" 
+                    id="landing-nickname"
+                    name="nickname"
                     placeholder={$_('landing.placeholder')} 
                     class="input input-lg w-full bg-base-200/50 focus:bg-base-100 border-transparent focus:border-primary text-center font-medium placeholder:font-normal placeholder:text-base-content/30 transition-all rounded-2xl" 
                     bind:value={nickname} 

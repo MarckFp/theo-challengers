@@ -871,7 +871,7 @@
                         <h4 class="text-sm font-semibold mb-2 opacity-70 flex items-center gap-2">
                              <span>⏳</span> {$_(I18N.home.expiry_title)}
                         </h4>
-                        <select class="select select-bordered w-full" bind:value={selectedExpiryKey}>
+                        <select id="home-send-expiry" name="challengeExpiry" class="select select-bordered w-full" bind:value={selectedExpiryKey}>
                             {#each CHALLENGE_EXPIRY_OPTIONS as option}
                                 <option value={option.key}>{$_(option.labelKey)} ({option.cost} 🪙)</option>
                             {/each}
@@ -887,6 +887,8 @@
                              <span>✍️</span> {$_(I18N.home.custom_message)}
                         </h4>
                         <textarea 
+                            id="home-send-message"
+                            name="challengeMessage"
                             class="textarea textarea-bordered h-24 w-full focus:textarea-primary transition-all" 
                             placeholder={$_('home.message_placeholder')}
                             bind:value={customMessage}
