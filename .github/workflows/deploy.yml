@@ -211,7 +211,7 @@ jobs:
           CODE_SIGNING_REQUIRED: "NO"
           CODE_SIGNING_ALLOWED: "NO"
         run: |
-          bun run tauri ios build --no-open 2>&1 | tee /tmp/tauri-ios-build.log
+          bun run tauri ios build 2>&1 | tee /tmp/tauri-ios-build.log
           # Find the built .app
           find src-tauri/gen/apple -name "*.app" -type d 2>/dev/null || true
           # Also check DerivedData
