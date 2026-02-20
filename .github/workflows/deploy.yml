@@ -206,6 +206,8 @@ jobs:
           xcode-version: latest-stable
       - name: Build unsigned iOS app
         run: |
+          set -euo pipefail
+
           # Generate the Xcode project
           bun tauri ios init
 
@@ -215,7 +217,39 @@ jobs:
           sed -i '' 's/CODE_SIGN_IDENTITY = "[^"]*"/CODE_SIGN_IDENTITY = "-"/g' "$PROJ"
           sed -i '' 's/"DEVELOPMENT_TEAM\[sdk=iphoneos\*\]" = "[^"]*"/"DEVELOPMENT_TEAM[sdk=iphoneos*]" = ""/g' "$PROJ"
 
-          # Build with xcodebuild directly — CLI settings override project settings
+          # Pre-build the Rust library so the xcode-script phase succeeds.
+          # The xcode-script needs bun + cargo in PATH; passing PATH= as an
+          # xcodebuild setting doesn't propagate to script phases reliably,
+          # so we build the static lib here and create a wrapper script that
+          # skips the Rust build if the library already exists.
+          export RUST_TARGET="aarch64-apple-ios"
+          cargo build --manifest-path src-tauri/Cargo.toml \
+            --target "$RUST_TARGET" --release --lib
+
+          # Place libapp.a where Xcode expects it
+          EXTERNALS="src-tauri/gen/apple/Externals/arm64/release"
+          mkdir -p "$EXTERNALS"
+          cp "src-tauri/target/${RUST_TARGET}/release/libtheo_challengers_lib.a" \
+            "${EXTERNALS}/libapp.a"
+
+          # Replace the Rust build script with a no-op since we already built
+          SCRIPT_PHASE="src-tauri/gen/apple/project.yml"
+          sed -i '' 's|script: bun tauri ios xcode-script.*|script: echo "Rust library pre-built, skipping xcode-script"|' "$SCRIPT_PHASE"
+
+          # Regenerate the xcodeproj from modified project.yml
+          if command -v xcodegen &> /dev/null; then
+            pushd src-tauri/gen/apple
+            xcodegen generate
+            popd
+          fi
+
+          # Re-apply signing patches (xcodegen may have regenerated the pbxproj)
+          PROJ="src-tauri/gen/apple/theo-challengers.xcodeproj/project.pbxproj"
+          sed -i '' 's/ProvisioningStyle = Automatic/ProvisioningStyle = Manual/g' "$PROJ"
+          sed -i '' 's/CODE_SIGN_IDENTITY = "[^"]*"/CODE_SIGN_IDENTITY = "-"/g' "$PROJ"
+          sed -i '' 's/"DEVELOPMENT_TEAM\[sdk=iphoneos\*\]" = "[^"]*"/"DEVELOPMENT_TEAM[sdk=iphoneos*]" = ""/g' "$PROJ"
+
+          # Build with xcodebuild — signing disabled, Rust already compiled
           xcodebuild \
             -project src-tauri/gen/apple/theo-challengers.xcodeproj \
             -scheme theo-challengers_iOS \
