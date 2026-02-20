@@ -125,15 +125,30 @@
         showQr($_(I18N.home.show_qr), shareLink);
     }
 
+    async function fallbackShareViaClipboard(shareLink: string) {
+        try {
+            await navigator.clipboard.writeText(shareLink);
+            const committed = await commitChallengeIfNeeded();
+            if (committed) {
+                alert($_(I18N.home.link_copied));
+                closeShareChallengeFlow();
+            }
+        } catch (error) {
+            console.error(error);
+            const committed = await commitChallengeIfNeeded();
+            if (committed) {
+                showQr($_(I18N.home.show_qr), shareLink);
+            }
+        }
+    }
+
     async function handleShareViaAppFromShareActions() {
         if (!generatedChallengeId || !challengeItem || !player) return;
         const shareLink = resolveGeneratedShareLink();
         if (!shareLink) return;
 
         if (!navigator.share) {
-            const committed = await commitChallengeIfNeeded();
-            if (!committed) return;
-            showQr($_(I18N.home.show_qr), shareLink);
+            await fallbackShareViaClipboard(shareLink);
             return;
         }
 
@@ -152,10 +167,7 @@
                 return;
             } else {
                 console.error(error);
-                const committed = await commitChallengeIfNeeded();
-                if (committed) {
-                    showQr($_(I18N.home.show_qr), shareLink);
-                }
+                await fallbackShareViaClipboard(shareLink);
             }
         }
     }

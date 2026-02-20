@@ -204,63 +204,32 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
-      - name: Install CocoaPods
-        run: sudo gem install cocoapods
-      - name: Neutralize Tauri build script phase in pbxproj
+      - name: Build iOS (unsigned)
+        env:
+          APPLE_DEVELOPMENT_TEAM: "0000000000"
+          CODE_SIGN_IDENTITY: ""
+          CODE_SIGNING_REQUIRED: "NO"
+          CODE_SIGNING_ALLOWED: "NO"
         run: |
-          python3 - <<'EOF'
-          import re, sys
-
-          path = "src-tauri/gen/apple/theo-challengers.xcodeproj/project.pbxproj"
-          with open(path, "r") as f:
-              content = f.read()
-
-          # Show current shellScript values containing xcode-script
-          matches = re.findall(r'shellScript = "([^"]*xcode-script[^"]*)"', content)
-          print(f"Found {len(matches)} script phase(s) to patch")
-          for m in matches:
-              print(f"  -> {m[:80]}...")
-
-          # Replace any shellScript containing xcode-script with a no-op
-          patched = re.sub(
-              r'(shellScript = ")[^"]*xcode-script[^"]*"',
-              r'\1echo \\"Rust build skipped\\"";',
-              content
-          )
-
-          # Also fix signing
-          patched = re.sub(r'CODE_SIGN_IDENTITY = "[^"]*"', 'CODE_SIGN_IDENTITY = ""', patched)
-          patched = re.sub(r'DEVELOPMENT_TEAM = [A-Z0-9]+;', 'DEVELOPMENT_TEAM = "";', patched)
-          patched = patched.replace('CODE_SIGNING_REQUIRED = YES', 'CODE_SIGNING_REQUIRED = NO')
-          patched = patched.replace('CODE_SIGNING_ALLOWED = YES', 'CODE_SIGNING_ALLOWED = NO')
-
-          with open(path, "w") as f:
-              f.write(patched)
-
-          print("Patched successfully")
-          EOF
-      - name: Build Rust for iOS
+          bun run tauri ios build --no-open 2>&1 | tee /tmp/tauri-ios-build.log
+          # Find the built .app
+          find src-tauri/gen/apple -name "*.app" -type d 2>/dev/null || true
+          # Also check DerivedData
+          find ~/Library/Developer/Xcode/DerivedData -name "*.app" -type d 2>/dev/null | grep -v Simulator || true
+      - name: Package into IPA
         run: |
-          cd src-tauri
-          cargo build --release --target aarch64-apple-ios
-      - name: Build unsigned IPA
-        run: |
-          cd src-tauri/gen/apple
-          xcodebuild \
-            -workspace theo-challengers.xcodeproj/project.xcworkspace \
-            -scheme theo-challengers_iOS \
-            -configuration release \
-            -destination 'generic/platform=iOS' \
-            -archivePath $RUNNER_TEMP/theo-challengers.xcarchive \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            DEVELOPMENT_TEAM="" \
-            archive
+          # Find the .app - tauri ios build puts it in DerivedData
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "Theo Challengers.app" -type d | grep -v Simulator | head -1)
           
+          if [ -z "$APP_PATH" ]; then
+            echo "Could not find .app, searching everywhere..."
+            find / -name "*.app" -type d 2>/dev/null | grep -v Simulator | grep -v Xcode.app || true
+            exit 1
+          fi
+
+          echo "Found app at: $APP_PATH"
           mkdir -p $RUNNER_TEMP/Payload
-          cp -r "$RUNNER_TEMP/theo-challengers.xcarchive/Products/Applications/"*.app \
-            "$RUNNER_TEMP/Payload/"
+          cp -r "$APP_PATH" "$RUNNER_TEMP/Payload/"
           cd $RUNNER_TEMP
           zip -r TheoChallengers-ios-${{ github.ref_name }}.ipa Payload/
       - name: Upload IPA to Release
