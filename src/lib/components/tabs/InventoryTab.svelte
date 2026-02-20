@@ -5,6 +5,7 @@
     import { useUser } from '$lib/stores/user.svelte';
     import { useInventory } from '$lib/stores/inventory.svelte';
     import { I18N } from '$lib/i18n-keys';
+    import { openUrl } from '@tauri-apps/plugin-opener';
     import QrCode from '$lib/components/QrCode.svelte';
     import ChallengeShareActions from '$lib/components/ChallengeShareActions.svelte';
 
@@ -125,6 +126,26 @@
         showQr($_(I18N.home.show_qr), shareLink);
     }
 
+    async function tryAndroidNativeShare(title: string, text: string, shareLink: string): Promise<boolean> {
+        const isTauriAndroid =
+            typeof window !== 'undefined' &&
+            /Android/i.test(navigator.userAgent) &&
+            '__TAURI_INTERNALS__' in window;
+
+        if (!isTauriAndroid) return false;
+
+        const payload = `${text}\n${shareLink}`;
+        const intentUrl = `intent://share/#Intent;action=android.intent.action.SEND;type=text/plain;S.android.intent.extra.SUBJECT=${encodeURIComponent(title)};S.android.intent.extra.TEXT=${encodeURIComponent(payload)};end`;
+
+        try {
+            await openUrl(intentUrl);
+            return true;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    }
+
     async function fallbackShareViaClipboard(shareLink: string) {
         try {
             await navigator.clipboard.writeText(shareLink);
@@ -147,6 +168,17 @@
         const shareLink = resolveGeneratedShareLink();
         if (!shareLink) return;
 
+        const shareTitle = $_(I18N.home.share_challenge_title);
+        const shareText = $_(I18N.home.share_challenge_text, { values: { item: challengeItem.title ? $_(challengeItem.title) : '' } });
+
+        if (await tryAndroidNativeShare(shareTitle, shareText, shareLink)) {
+            const committed = await commitChallengeIfNeeded();
+            if (committed) {
+                closeShareChallengeFlow();
+            }
+            return;
+        }
+
         if (!navigator.share) {
             await fallbackShareViaClipboard(shareLink);
             return;
@@ -154,8 +186,8 @@
 
         try {
             await navigator.share({
-                title: $_(I18N.home.share_challenge_title),
-                text: $_(I18N.home.share_challenge_text, { values: { item: challengeItem.title ? $_(challengeItem.title) : '' } }),
+                title: shareTitle,
+                text: shareText,
                 url: shareLink
             });
             const committed = await commitChallengeIfNeeded();

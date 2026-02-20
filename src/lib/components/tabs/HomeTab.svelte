@@ -5,6 +5,7 @@
     import type { Challenge } from '$lib/models/challenge';
     import { _ } from 'svelte-i18n';
     import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
+    import { openUrl } from '@tauri-apps/plugin-opener';
     
     // Services & Stores
     import { useUser } from '$lib/stores/user.svelte';
@@ -254,6 +255,26 @@
         showQr($_(I18N.home.show_qr), shareLink);
     }
 
+    async function tryAndroidNativeShare(title: string, text: string, shareLink: string): Promise<boolean> {
+        const isTauriAndroid =
+            typeof window !== 'undefined' &&
+            /Android/i.test(navigator.userAgent) &&
+            '__TAURI_INTERNALS__' in window;
+
+        if (!isTauriAndroid) return false;
+
+        const payload = `${text}\n${shareLink}`;
+        const intentUrl = `intent://share/#Intent;action=android.intent.action.SEND;type=text/plain;S.android.intent.extra.SUBJECT=${encodeURIComponent(title)};S.android.intent.extra.TEXT=${encodeURIComponent(payload)};end`;
+
+        try {
+            await openUrl(intentUrl);
+            return true;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    }
+
     async function fallbackShareViaClipboard(shareLink: string) {
         try {
             await navigator.clipboard.writeText(shareLink);
@@ -285,10 +306,21 @@
         }
 
         const itemTitle = item.title ?? '';
+        const shareTitle = $_(I18N.home.share_challenge_title);
+        const shareText = $_(I18N.home.share_challenge_text, { values: { item: itemTitle ? $_(itemTitle) : '' } });
+
+        if (await tryAndroidNativeShare(shareTitle, shareText, shareLink)) {
+            const committed = await commitChallengeIfNeeded();
+            if (committed) {
+                closeShareChallengeFlow();
+            }
+            return;
+        }
+
         try {
             await navigator.share({
-                title: $_(I18N.home.share_challenge_title),
-                text: $_(I18N.home.share_challenge_text, { values: { item: itemTitle ? $_(itemTitle) : '' } }),
+                title: shareTitle,
+                text: shareText,
                 url: shareLink
             });
             const committed = await commitChallengeIfNeeded();

@@ -13,11 +13,12 @@ function getShareLinkBase(): string {
     if (configuredBase) return configuredBase;
 
     const currentOrigin = window.location.origin;
-    if (currentOrigin.includes('tauri.localhost')) {
-        return 'theochallengers://challenge';
+    const currentProtocol = window.location.protocol;
+    if (currentProtocol === 'http:' || currentProtocol === 'https:') {
+        return currentOrigin;
     }
 
-    return currentOrigin;
+    return 'https://head.theo-challengers.pages.dev';
 }
 
 function buildShareLink(paramName: string, encodedPayload: string): string {

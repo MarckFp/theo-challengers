@@ -217,4 +217,4 @@ jobs:
           releaseDraft: false
           prerelease: false
           mobile: 'ios'
-          args: '--export-method release-testing'
+          args: '--export-method debugging'
