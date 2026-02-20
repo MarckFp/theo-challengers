@@ -17,6 +17,8 @@
         finalizeChallengeClaim,
     } from '$lib/services/challenge';
     import type { SentChallenge } from '$lib/models/sentChallenge';
+    import { CHALLENGE_EXPIRY_OPTIONS, computeExpiresAt, isExpired, resolveExpiryOption, type ChallengeExpiryKey } from '$lib/data/challenge-expiry';
+    import { extractProfileCardFromLink, isProfileCardLink, type ProfileCardSnapshot } from '$lib/services/profile-card-link';
     import {
         isProximityApprovalQR,
         isApprovalLink,
@@ -62,18 +64,25 @@
 
     let selectedItemId = $state<number | null>(null);
     let customMessage = $state('');
+    let selectedExpiryKey = $state<ChallengeExpiryKey>('none');
+    let generatedExpiresAt = $state<Date | null>(null);
     let generatedShareLink = $state<string | null>(null);
     let generatedChallengeId = $state<string | null>(null);
     let isChallengeCommitted = $state(false);
     
     // Pending claim request info (for Receiver)
-    let pendingClaimRequest = $state<{id: string, from: string, item: any, message?: string} | null>(null);
+    let pendingClaimRequest = $state<{id: string, from: string, item: any, message?: string, expiresAt?: string | null, expiryCost?: number} | null>(null);
 
     // Copy Feedback State
     let copiedState = $state<string | null>(null);
 
     // Expanded QR State (fullscreen overlay)
     let expandedQrData = $state<string | null>(null);
+    let receivedProfileCard = $state<ProfileCardSnapshot | null>(null);
+
+    let selectedExpiryOption = $derived.by(() => resolveExpiryOption(selectedExpiryKey));
+    let selectedExpiryCost = $derived(selectedExpiryOption.cost);
+    let canAffordSelectedExpiry = $derived((currentUser?.coins || 0) >= selectedExpiryCost);
 
     function getSentChallengeTime(sc: SentChallenge): number {
         return new Date(sc.createdAt).getTime();
@@ -126,6 +135,15 @@
 
         // 2. Fall back to URL-based handling
         try {
+            if (isProfileCardLink(decodedText)) {
+                const snapshot = extractProfileCardFromLink(decodedText);
+                if (snapshot) {
+                    receivedProfileCard = snapshot;
+                    (document.getElementById('profile_card_modal') as HTMLDialogElement)?.showModal();
+                    return;
+                }
+            }
+
             if (!handleIncomingUrl(decodedText)) {
                 alert("Unknown QR Code format");
             }
@@ -147,6 +165,16 @@
                 const data = JSON.parse(json);
                 handleIncomingShare(data);
                 return true;
+            }
+
+            const profileCard = params.get('profile_card');
+            if (profileCard) {
+                const snapshot = extractProfileCardFromLink(rawUrl);
+                if (snapshot) {
+                    receivedProfileCard = snapshot;
+                    (document.getElementById('profile_card_modal') as HTMLDialogElement)?.showModal();
+                    return true;
+                }
             }
 
             // Approval link (Player B clicked a verification link from Player A)
@@ -187,7 +215,7 @@
         const subscription = liveQuery(() => 
             db.challenge
                 .where('playerId').equals(currentUser.id!)
-                .filter(c => c.completedAt === undefined || c.completedAt === null)
+                .filter(c => (c.completedAt === undefined || c.completedAt === null) && !isExpired(c.expiresAt))
                 .toArray()
         ).subscribe(result => {
             activeChallenges = result;
@@ -364,6 +392,8 @@
         isChallengeCommitted = false;
         selectedItemId = null;
         customMessage = '';
+        selectedExpiryKey = 'none';
+        generatedExpiresAt = null;
         (document.getElementById('send_challenge_modal') as HTMLDialogElement)?.close();
     }
 
@@ -384,8 +414,10 @@
         const item = inventory.find(i => i.id === selectedItemId);
         if (!item) return;
 
-        const draft = await createChallengeLink(currentUser, item, customMessage);
+        const expiresAt = computeExpiresAt(selectedExpiryOption.hours);
+        const draft = await createChallengeLink(currentUser, item, customMessage, expiresAt, selectedExpiryCost);
         if (draft) {
+            generatedExpiresAt = expiresAt;
             generatedShareLink = draft.link;
             generatedChallengeId = draft.id;
             isChallengeCommitted = false;
@@ -399,9 +431,11 @@
         const item = inventory.find(i => i.id === selectedItemId);
         if (!item) return false;
 
-        const committed = await commitChallengeLink(currentUser, item, customMessage, generatedChallengeId);
+        const committed = await commitChallengeLink(currentUser, item, customMessage, generatedChallengeId, generatedExpiresAt, selectedExpiryCost);
         if (committed) {
             isChallengeCommitted = true;
+        } else if (!canAffordSelectedExpiry) {
+            alert($_(I18N.store.not_enough_coins));
         }
         return committed;
     }
@@ -532,6 +566,7 @@
                 description: pendingClaimRequest.item?.description,
                 points: pendingClaimRequest.item?.points,
                 reward: pendingClaimRequest.item?.points,
+                expiresAt: pendingClaimRequest.expiresAt ? new Date(pendingClaimRequest.expiresAt) : undefined,
                 fromPlayer: pendingClaimRequest.from,
                 message: pendingClaimRequest.message,
             });
@@ -601,8 +636,12 @@
             </button>
 
             <div class="avatar placeholder">
-                <div class="bg-primary text-primary-content rounded-full w-10 flex items-center justify-center">
-                    <span class="text-lg font-bold">{(currentUser?.nickname || 'P').charAt(0).toUpperCase()}</span>
+                <div class="bg-primary text-primary-content rounded-full w-10 h-10 flex items-center justify-center overflow-hidden">
+                    {#if currentUser?.avatarImage}
+                        <img src={currentUser.avatarImage} alt={currentUser.nickname || 'Profile'} class="w-full h-full object-cover" />
+                    {:else}
+                        <span class="text-lg font-bold">{(currentUser?.nickname || 'P').charAt(0).toUpperCase()}</span>
+                    {/if}
                 </div>
             </div>
         </div>
@@ -663,6 +702,11 @@
                             <span class="badge badge-sm badge-ghost">{challenge.points} pts</span>
                         </div>
                         <p class="text-xs text-base-content/80 mt-1">{$_(challenge.description)}</p>
+                        {#if challenge.expiresAt}
+                            <p class="text-[10px] text-warning mt-1">
+                                ⏳ {$_(I18N.home.expires_at)} {new Date(challenge.expiresAt).toLocaleString()}
+                            </p>
+                        {/if}
                         {#if challenge.message}
                             <p class="text-xs text-base-content/60 mt-1 italic">"{challenge.message}"</p>
                         {/if}
@@ -823,6 +867,20 @@
                         {/if}
                     </div>
 
+                    <div>
+                        <h4 class="text-sm font-semibold mb-2 opacity-70 flex items-center gap-2">
+                             <span>⏳</span> {$_(I18N.home.expiry_title)}
+                        </h4>
+                        <select class="select select-bordered w-full" bind:value={selectedExpiryKey}>
+                            {#each CHALLENGE_EXPIRY_OPTIONS as option}
+                                <option value={option.key}>{$_(option.labelKey)} ({option.cost} 🪙)</option>
+                            {/each}
+                        </select>
+                        <div class="label">
+                            <span class="label-text-alt opacity-70">{$_(I18N.home.expiry_cost)}: {selectedExpiryCost} 🪙</span>
+                        </div>
+                    </div>
+
                     <!-- Step 2: Custom Message -->
                     <div>
                         <h4 class="text-sm font-semibold mb-2 opacity-70 flex items-center gap-2">
@@ -843,7 +901,7 @@
                     <button 
                         class="btn btn-primary w-full gap-2 shadow-lg shadow-primary/20"
                         onclick={generateChallengeLink}
-                        disabled={!selectedItemId}>
+                        disabled={!selectedItemId || !canAffordSelectedExpiry}>
                         <span>🚀</span> {$_(I18N.home.create_link)}
                     </button>
                 </div>
@@ -1025,6 +1083,60 @@
         </form>
     </dialog>
 
+    <dialog id="profile_card_modal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box">
+            {#if receivedProfileCard}
+                <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/30 via-secondary/20 to-accent/30 p-5 card-glow">
+                    <div class="absolute inset-0 bg-base-100/20 backdrop-blur-[1px]"></div>
+                    <div class="relative space-y-3">
+                        <div class="flex items-center gap-3">
+                            <div class="avatar placeholder">
+                                <div class="bg-primary text-primary-content rounded-full w-16 h-16 ring ring-primary/40 ring-offset-base-100 ring-offset-2 float-avatar flex items-center justify-center overflow-hidden">
+                                    {#if receivedProfileCard.avatarImage}
+                                        <img src={receivedProfileCard.avatarImage} alt={receivedProfileCard.nickname} class="w-full h-full object-cover" />
+                                    {:else}
+                                        <span class="text-2xl font-bold leading-none">{receivedProfileCard.avatarChar}</span>
+                                    {/if}
+                                </div>
+                            </div>
+                            <div>
+                                <p class="text-xl font-extrabold tracking-wide">{receivedProfileCard.nickname}</p>
+                                <p class="text-xs uppercase tracking-widest opacity-80">{receivedProfileCard.title}</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 gap-2 text-xs">
+                            <div class="badge badge-ghost justify-start px-3 py-3">🏆 {receivedProfileCard.score}</div>
+                        </div>
+
+                        <div>
+                            <p class="text-xs font-semibold mb-2 opacity-80">{$_(I18N.profile.card_badges)}</p>
+                            {#if receivedProfileCard.badges?.length > 0}
+                                <div class="flex flex-wrap gap-2">
+                                    {#each receivedProfileCard.badges as badge, idx}
+                                        <span class="badge badge-primary/10 border border-primary/30 text-xs shimmer" style={`animation-delay:${idx * 120}ms`}>
+                                            {badge.icon} {$_(badge.name)}
+                                        </span>
+                                    {/each}
+                                </div>
+                            {:else}
+                                <p class="text-xs opacity-60">—</p>
+                            {/if}
+                        </div>
+                    </div>
+                </div>
+            {/if}
+            <div class="modal-action">
+                <form method="dialog">
+                    <button class="btn" onclick={() => receivedProfileCard = null}>{$_(I18N.common.close)}</button>
+                </form>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button onclick={() => receivedProfileCard = null}>{$_(I18N.common.close)}</button>
+        </form>
+    </dialog>
+
     <!-- Fullscreen Expanded QR Dialog (uses <dialog> for proper top-layer rendering) -->
     <dialog id="expanded_qr_dialog" class="modal">
         <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -1077,5 +1189,32 @@
     @keyframes glow-pulse {
         0%, 100% { opacity: 0.4; transform: scale(1); }
         50% { opacity: 0.8; transform: scale(1.03); }
+    }
+
+    .card-glow {
+        animation: pulse-glow 3s ease-in-out infinite;
+    }
+
+    .float-avatar {
+        animation: floaty 2.8s ease-in-out infinite;
+    }
+
+    .shimmer {
+        animation: shimmer-in 0.8s ease-out both;
+    }
+
+    @keyframes pulse-glow {
+        0%, 100% { filter: saturate(1); }
+        50% { filter: saturate(1.2); }
+    }
+
+    @keyframes floaty {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-3px); }
+    }
+
+    @keyframes shimmer-in {
+        from { opacity: 0; transform: translateY(6px) scale(0.95); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
     }
 </style>

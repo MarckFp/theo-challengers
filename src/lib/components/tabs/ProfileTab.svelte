@@ -4,9 +4,12 @@
     import { onMount } from 'svelte';
     import Journal from '../Journal.svelte';
     import { _, locale } from 'svelte-i18n';
+    import { openUrl } from '@tauri-apps/plugin-opener';
     import { useUser } from '$lib/stores/user.svelte';
     import { I18N } from '$lib/i18n-keys';
     import TutorialModal from '../TutorialModal.svelte';
+    import { BADGES_CATALOG } from '$lib/data/badges';
+    import { buildProfileCardSnapshot, generateProfileCardLink } from '$lib/services/profile-card-link';
 
     const userStore = useUser();
     let player = $derived(userStore.value);
@@ -44,6 +47,8 @@
     ];
     let currentTheme = $state('');
     let currentLang = $state('en');
+    let isSharingProfileCard = $state(false);
+    let avatarInputRef = $state<HTMLInputElement | null>(null);
 
     $effect(() => {
         const unsubscribe = locale.subscribe(l => {
@@ -126,6 +131,121 @@
         localStorage.setItem('locale', currentLang);
     }
 
+    async function compressImageDataUrl(dataUrl: string, maxSize = 64, quality = 0.72): Promise<string> {
+        return new Promise((resolve) => {
+            const image = new Image();
+            image.onload = () => {
+                const canvas = document.createElement('canvas');
+                const scale = Math.min(maxSize / image.width, maxSize / image.height, 1);
+                const width = Math.max(1, Math.round(image.width * scale));
+                const height = Math.max(1, Math.round(image.height * scale));
+
+                canvas.width = width;
+                canvas.height = height;
+                const context = canvas.getContext('2d');
+                if (!context) {
+                    resolve(dataUrl);
+                    return;
+                }
+
+                context.drawImage(image, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            image.onerror = () => resolve(dataUrl);
+            image.src = dataUrl;
+        });
+    }
+
+    async function handleAvatarSelected(event: Event) {
+        const input = event.target as HTMLInputElement;
+        if (!player?.id || !input.files || input.files.length === 0) return;
+
+        const file = input.files[0];
+        if (!file.type.startsWith('image/')) return;
+
+        if (file.size > 2 * 1024 * 1024) {
+            alert('Image too large. Please use an image under 2MB.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async () => {
+            const result = reader.result;
+            if (typeof result === 'string') {
+                const compressed = await compressImageDataUrl(result, 160, 0.8);
+                await db.player.update(player.id!, { avatarImage: compressed });
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function removeAvatar() {
+        if (!player?.id) return;
+        await db.player.update(player.id, { avatarImage: undefined });
+    }
+
+    async function tryAndroidNativeShare(title: string, text: string, link: string): Promise<boolean> {
+        const isTauriAndroid =
+            typeof window !== 'undefined' &&
+            /Android/i.test(navigator.userAgent) &&
+            '__TAURI_INTERNALS__' in window;
+
+        if (!isTauriAndroid) return false;
+
+        const payload = `${text}\n${link}`;
+        const intentUrl = `intent://share/#Intent;action=android.intent.action.SEND;type=text/plain;S.android.intent.extra.SUBJECT=${encodeURIComponent(title)};S.android.intent.extra.TEXT=${encodeURIComponent(payload)};end`;
+
+        try {
+            await openUrl(intentUrl);
+            return true;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    }
+
+    async function shareProfileCardSnapshot() {
+        if (!player) return;
+
+        isSharingProfileCard = true;
+        try {
+            const ownedBadges = BADGES_CATALOG.filter((badge) => (player.badges || []).includes(badge.id));
+            const avatarForShare = player.avatarImage
+                ? await compressImageDataUrl(player.avatarImage, 64, 0.72)
+                : undefined;
+            const snapshotPlayer = { ...player, avatarImage: avatarForShare };
+            const snapshot = buildProfileCardSnapshot(
+                snapshotPlayer,
+                levelInfo.level,
+                $_(I18N.levels[levelInfo.titleKey]),
+                ownedBadges,
+                currentTheme
+            );
+            const link = generateProfileCardLink(snapshot);
+            const title = `${player.nickname} • Theo Challengers`;
+            const text = $_(I18N.profile.share_card);
+            const payload = `${text}\n${link}`;
+
+            if (await tryAndroidNativeShare(title, text, link)) return;
+
+            if (navigator.share) {
+                try {
+                    await navigator.share({ title, text: payload });
+                    return;
+                } catch (error: any) {
+                    if (error?.name === 'AbortError') return;
+                }
+            }
+
+            await navigator.clipboard.writeText(link);
+            alert($_(I18N.home.link_copied));
+        } catch (error) {
+            console.error('Failed to share profile card link', error);
+        } finally {
+            isSharingProfileCard = false;
+        }
+    }
+
     let isDeleteModalOpen = $state(false);
 
     async function handleDeleteAccount() {
@@ -144,9 +264,21 @@
     <div class="flex flex-col items-center pt-8 pb-4">
         <div class="avatar placeholder mb-4 indicator">
             <span class="indicator-item badge badge-secondary font-bold shadow-md">Lvl {levelInfo.level}</span> 
-            <div class="bg-primary text-primary-content rounded-full w-24 shadow-xl ring ring-primary ring-offset-base-100 ring-offset-2 flex items-center justify-center">
-                 <span class="text-4xl font-bold">{(player?.nickname || 'P').charAt(0).toUpperCase()}</span>
+            <div class="bg-primary text-primary-content rounded-full w-24 h-24 shadow-xl ring ring-primary ring-offset-base-100 ring-offset-2 flex items-center justify-center overflow-hidden">
+                {#if player?.avatarImage}
+                    <img src={player.avatarImage} alt={player.nickname || 'Profile'} class="w-full h-full object-cover" />
+                {:else}
+                    <span class="text-4xl font-bold">{(player?.nickname || 'P').charAt(0).toUpperCase()}</span>
+                {/if}
             </div>
+        </div>
+
+        <div class="flex gap-2 mb-2">
+            <button class="btn btn-sm btn-outline" onclick={() => avatarInputRef?.click()}>{$_(I18N.profile.upload_photo)}</button>
+            {#if player?.avatarImage}
+                <button class="btn btn-sm btn-ghost text-error" onclick={removeAvatar}>{$_(I18N.profile.remove_photo)}</button>
+            {/if}
+            <input bind:this={avatarInputRef} type="file" accept="image/*" class="hidden" onchange={handleAvatarSelected} />
         </div>
         
         {#if isEditingNickname}
@@ -193,6 +325,15 @@
             <progress class="progress progress-primary w-full h-3 shadow-inner bg-base-300" value={currentProgress} max="100"></progress>
         </div>
     </div>
+
+    <button class="btn btn-primary btn-lg w-full shadow-lg shadow-primary/20" onclick={shareProfileCardSnapshot} disabled={isSharingProfileCard || !player}>
+        {#if isSharingProfileCard}
+            <span class="loading loading-spinner loading-sm"></span>
+            {$_(I18N.profile.card_generating)}
+        {:else}
+            {$_(I18N.profile.share_card)}
+        {/if}
+    </button>
     
     <!-- History/Journal -->
     <Journal />

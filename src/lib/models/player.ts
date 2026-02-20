@@ -13,4 +13,5 @@ export interface Player {
     badges?: string[] // IDs of owned badges
     lifetimeScore?: number // Accumulated score for Rank/Level persistence
     tutorialSeen?: boolean // Whether the user has seen the tutorial
+    avatarImage?: string // Base64/profile image data URL
 }

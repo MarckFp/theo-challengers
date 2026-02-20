@@ -8,6 +8,7 @@
     import { openUrl } from '@tauri-apps/plugin-opener';
     import QrCode from '$lib/components/QrCode.svelte';
     import ChallengeShareActions from '$lib/components/ChallengeShareActions.svelte';
+    import { CHALLENGE_EXPIRY_OPTIONS, computeExpiresAt, resolveExpiryOption, type ChallengeExpiryKey } from '$lib/data/challenge-expiry';
 
     import { createChallengeLink, commitChallengeLink } from '$lib/services/challenge';
 
@@ -25,8 +26,10 @@
     let generatedShareLink = $state<string | null>(null);
     let generatedChallengeId = $state<string | null>(null);
     let isChallengeCommitted = $state(false);
+    let generatedExpiresAt = $state<Date | null>(null);
     let challengeItem = $state<Inventory | null>(null);
     let customMessage = $state('');
+    let selectedExpiryKey = $state<ChallengeExpiryKey>('none');
 
     // QR Modal State
     let isShowQrModalOpen = $state(false);
@@ -36,6 +39,10 @@
     // View Modal State
     let isViewModalOpen = $state(false);
     let viewingItem = $state<Inventory | null>(null);
+
+    let selectedExpiryOption = $derived.by(() => resolveExpiryOption(selectedExpiryKey));
+    let selectedExpiryCost = $derived(selectedExpiryOption.cost);
+    let canAffordSelectedExpiry = $derived((player?.coins || 0) >= selectedExpiryCost);
 
     function openViewModal(item: Inventory) {
         viewingItem = item;
@@ -70,7 +77,9 @@
     function openChallengeModal(item: Inventory) {
         challengeItem = item;
         customMessage = '';
+        selectedExpiryKey = 'none';
         generatedShareLink = null;
+        generatedExpiresAt = null;
         isChallengeModalOpen = true;
         isViewModalOpen = false;
     }
@@ -80,7 +89,9 @@
         generatedShareLink = null;
         generatedChallengeId = null;
         isChallengeCommitted = false;
+        generatedExpiresAt = null;
         customMessage = '';
+        selectedExpiryKey = 'none';
         challengeItem = null;
     }
 
@@ -91,8 +102,10 @@
 
     async function generateChallengeLink() {
         if (!challengeItem || !player) return;
-        const draft = await createChallengeLink(player, challengeItem, customMessage);
+        const expiresAt = computeExpiresAt(selectedExpiryOption.hours);
+        const draft = await createChallengeLink(player, challengeItem, customMessage, expiresAt, selectedExpiryCost);
         if (draft) {
+            generatedExpiresAt = expiresAt;
             generatedShareLink = draft.link;
             generatedChallengeId = draft.id;
             isChallengeCommitted = false;
@@ -103,9 +116,11 @@
         if (isChallengeCommitted) return true;
         if (!player || !challengeItem || !generatedChallengeId) return false;
 
-        const committed = await commitChallengeLink(player, challengeItem, customMessage, generatedChallengeId);
+        const committed = await commitChallengeLink(player, challengeItem, customMessage, generatedChallengeId, generatedExpiresAt, selectedExpiryCost);
         if (committed) {
             isChallengeCommitted = true;
+        } else if (!canAffordSelectedExpiry) {
+            alert($_(I18N.store.not_enough_coins));
         }
         return committed;
     }
@@ -353,6 +368,20 @@
 
                     <div>
                         <h4 class="text-sm font-semibold mb-2 opacity-70 flex items-center gap-2">
+                            <span>⏳</span> {$_(I18N.home.expiry_title)}
+                        </h4>
+                        <select class="select select-bordered w-full" bind:value={selectedExpiryKey}>
+                            {#each CHALLENGE_EXPIRY_OPTIONS as option}
+                                <option value={option.key}>{$_(option.labelKey)} ({option.cost} 🪙)</option>
+                            {/each}
+                        </select>
+                        <div class="label">
+                            <span class="label-text-alt opacity-70">{$_(I18N.home.expiry_cost)}: {selectedExpiryCost} 🪙</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="text-sm font-semibold mb-2 opacity-70 flex items-center gap-2">
                              <span>✍️</span> {$_(I18N.home.custom_message)}
                         </h4>
                         <textarea
@@ -367,7 +396,7 @@
                 </div>
 
                 <div class="modal-action">
-                    <button class="btn btn-primary w-full gap-2 shadow-lg shadow-primary/20" onclick={generateChallengeLink}>
+                    <button class="btn btn-primary w-full gap-2 shadow-lg shadow-primary/20" onclick={generateChallengeLink} disabled={!canAffordSelectedExpiry}>
                         <span>🚀</span> {$_(I18N.home.create_link)}
                     </button>
                 </div>

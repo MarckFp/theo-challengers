@@ -7,6 +7,8 @@ export interface SentChallenge {
     points: number
     message?: string
     createdAt: Date
+    expiresAt?: Date
+    expiryCost?: number
     claimedBy?: string
     status: 'pending' | 'accepted' | 'rejected'
 }

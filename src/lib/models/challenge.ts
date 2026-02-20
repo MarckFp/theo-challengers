@@ -7,6 +7,7 @@ export interface Challenge {
     points: number
     reward: number
     completedAt?: Date
+    expiresAt?: Date
     fromPlayer?: string
     message?: string
 }

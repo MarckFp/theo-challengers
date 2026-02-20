@@ -4,6 +4,7 @@ import type { Player } from '$lib/models/player';
 import type { Inventory } from '$lib/models/inventory';
 import type { Challenge } from '$lib/models/challenge';
 import { getGossipData, processGossip } from './leaderboard';
+import { isExpired } from '$lib/data/challenge-expiry';
 
 function getShareLinkBase(): string {
     const configuredBase = (
@@ -41,7 +42,9 @@ export async function updatePeerScore(nickname: string, score: number) {
 export async function createChallengeLink(
     currentUser: Player, 
     item: Inventory, 
-    customMessage: string
+    customMessage: string,
+    expiresAt: Date | null = null,
+    expiryCost = 0
 ): Promise<{ id: string; link: string } | null> {
     if (!currentUser?.id || !item?.id) return null;
 
@@ -62,6 +65,8 @@ export async function createChallengeLink(
             description: item.description
         },
         message: customMessage,
+        expiresAt: expiresAt ? expiresAt.toISOString() : null,
+        expiryCost,
         gossip: gossip // Piggyback leaderboard
     };
 
@@ -82,9 +87,15 @@ export async function commitChallengeLink(
     currentUser: Player,
     item: Inventory,
     customMessage: string,
-    challengeId: string
+    challengeId: string,
+    expiresAt: Date | null = null,
+    expiryCost = 0
 ): Promise<boolean> {
     if (!currentUser?.id || !item?.id || !challengeId) return false;
+
+    if ((currentUser.coins || 0) < expiryCost) {
+        return false;
+    }
 
     const existing = await db.sentChallenge.where('uuid').equals(challengeId).first();
     if (!existing) {
@@ -96,11 +107,20 @@ export async function commitChallengeLink(
             points: item.points,
             message: customMessage,
             createdAt: new Date(),
+            expiresAt: expiresAt ?? undefined,
+            expiryCost,
             status: 'pending'
         });
     }
 
     await db.inventory.delete(item.id);
+
+    if (expiryCost > 0) {
+        await db.player.update(currentUser.id!, {
+            coins: Math.max(0, (currentUser.coins || 0) - expiryCost)
+        });
+    }
+
     return true;
 }
 
@@ -199,6 +219,10 @@ export async function processIncomingChallengeLink(data: any, currentUser: Playe
         throw new Error('store.already_accepted_error');
     }
 
+    if (isExpired(data.expiresAt)) {
+        throw new Error('home.challenge_expired');
+    }
+
     // Process gossip
     await processGossip(data, currentUser);
 
@@ -215,6 +239,7 @@ export async function acceptChallenge(challengeData: any, currentUser: Player) {
         description: challengeData.item.description,
         points: challengeData.item.points,
         reward: challengeData.item.points, // Simplified reward logic
+        expiresAt: challengeData.expiresAt ? new Date(challengeData.expiresAt) : undefined,
         fromPlayer: challengeData.from,
         message: challengeData.message,
         // created_at missing in type but nice to have
