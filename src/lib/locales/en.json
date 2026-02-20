@@ -246,5 +246,24 @@
       "bible_researcher": { "title": "Bible Researcher", "desc": "Do extra research on a topic and share it with someone." },
       "right_hand": { "title": "Right Hand", "desc": "Warmly welcome a new person or visitor at the meeting." },
       "faith_interview": { "title": "Faith Interview", "desc": "Ask a mature Christian how they overcame a trial." }
+    },
+    "proximity": {
+        "verify_title": "Verify Challenge",
+        "show_qr_instruction": "Let them scan this QR to receive their reward.",
+        "approved_title": "Approved!",
+        "approved_badge": "Approved",
+        "approving": "Approving challenge...",
+        "approve_btn": "Approve",
+        "reshare_btn": "Re-share",
+        "share_link_instead": "Send link instead",
+        "share_verification_text": "Share this verification link so they can claim their reward.",
+        "sent_challenges": "Challenges You Sent",
+        "pending_for": "Sent to:",
+        "scan_to_verify": "Scan verification QR",
+        "verified_title": "Challenge Verified!",
+        "tap_to_expand": "Tap to enlarge",
+        "tap_to_close": "Tap anywhere to close",
+        "scan_success": "Verified by {user}! Rewards received.",
+        "use_qr_instead": "Please use the in-app QR verification instead."
     }
 }

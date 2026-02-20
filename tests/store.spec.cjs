@@ -1,11 +1,12 @@
 const { test, expect } = require('@playwright/test');
-const { completeTutorial, clickTab, brutalCleanup, seedCoins } = require('./utils.cjs');
+const { resetAppState, completeTutorial, clickTab, brutalCleanup, seedCoins } = require('./utils.cjs');
 
 test.describe('Store & Inventory', () => {
 
     test.beforeEach(async ({ page }) => {
         // Debug console logs from browser
         page.on('console', msg => console.log(`BROWSER LOG: ${msg.text()}`));
+        await resetAppState(page);
         await page.goto('/');
     });
 

@@ -1,11 +1,12 @@
 const { test, expect } = require('@playwright/test');
-const { completeTutorial, clickTab, brutalCleanup, seedInventory } = require('./utils.cjs');
+const { resetAppState, completeTutorial, clickTab, brutalCleanup, seedInventory } = require('./utils.cjs');
 
 test.describe('Challenge Flow', () => {
 
     test.beforeEach(async ({ page }) => {
         // Debug console logs from browser
         page.on('console', msg => console.log(`BROWSER LOG: ${msg.text()}`));
+        await resetAppState(page);
         await page.goto('/');
     });
 
@@ -45,26 +46,13 @@ test.describe('Challenge Flow', () => {
         // The button text might be "Challenge!" (fallback) or localized
         await viewModal.getByRole('button', { name: /Challenge/i }).click();
 
-        // 3. Challenge Link Modal (Wait for modal to appear)
-        // Correct behavior: A modal with a link appears, not a QR code immediately
-        const linkModal = page.locator('.modal-open').filter({ hasText: /Ready to Challenge|Link/i }).first();
-        await expect(linkModal).toBeVisible({ timeout: 5000 });
-        
-        // Verify link is present
-        await expect(linkModal.locator('.break-all')).toBeVisible();
+          // 3. Challenge share modal (current behavior uses share actions)
+        const createLinkBtn = page.getByRole('button', { name: /Create Challenge Link/i });
+        await expect(createLinkBtn).toBeVisible({ timeout: 5000 });
+        await createLinkBtn.click();
 
-        // Close the modal
-        // Note: The modal might have a Close button or just click outside/escape
-        // Looking for a button inside the modal action area
-        const closeBtn = linkModal.getByRole('button', { name: /Copy Link/i }); 
-        await expect(closeBtn).toBeVisible();
-        
-        // Just verify we got here is enough for "Send Challenge" flow
-        
-        /* 
-           Original expectation was canvas (QR), but current flow shows a Link first. 
-           The Test should reflect current UI behavior.
-        */
+        await expect(page.getByRole('button', { name: /Show QR/i })).toBeVisible({ timeout: 5000 });
+        await expect(page.getByRole('button', { name: /Share via App/i })).toBeVisible({ timeout: 5000 });
     });
 
 });

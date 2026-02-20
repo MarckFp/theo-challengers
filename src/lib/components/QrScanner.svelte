@@ -4,7 +4,7 @@
     import { _ } from 'svelte-i18n';
     import { I18N } from '$lib/i18n-keys';
 
-    let { onScan, onCancel } = $props();
+    let { onScan, onCancel = undefined, readerId = 'reader', compact = false } = $props();
 
     let scanner: Html5Qrcode | null = null;
     let scanError = $state<string | null>(null);
@@ -14,7 +14,7 @@
 
     onMount(async () => {
         try {
-            scanner = new Html5Qrcode("reader");
+            scanner = new Html5Qrcode(readerId);
             
             // Prefer back camera
             await scanner.start(
@@ -38,7 +38,7 @@
         }
     });
 
-    async function stopScanner() {
+    export async function stopScanner() {
         if (scanner && isScanning) {
             try {
                 await scanner.stop();
@@ -56,7 +56,7 @@
 </script>
 
 <div class="flex flex-col items-center gap-4 w-full">
-    <div id="reader" class="w-full max-w-sm aspect-square bg-black/10 rounded-lg overflow-hidden relative"></div>
+    <div id={readerId} class="w-full max-w-sm aspect-square bg-black/10 rounded-lg overflow-hidden relative"></div>
     
     {#if scanError}
         <div class="alert alert-error text-sm">
@@ -64,7 +64,9 @@
         </div>
     {/if}
 
+    {#if onCancel}
     <button class="btn btn-ghost" onclick={onCancel}>
         {$_(I18N.common.cancel)}
     </button>
+    {/if}
 </div>

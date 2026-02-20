@@ -246,5 +246,24 @@
       "bible_researcher": { "title": "Investigador Bíblico", "desc": "Investiga un tema y compártelo con alguien." },
       "right_hand": { "title": "Mano Derecha", "desc": "Da una calurosa bienvenida a una persona nueva o visitante." },
       "faith_interview": { "title": "Entrevista de Fe", "desc": "Pregunta a un cristiano maduro cómo superó una prueba." }
+    },
+    "proximity": {
+        "verify_title": "Verificar Desafío",
+        "show_qr_instruction": "Deja que escaneen este QR para recibir su recompensa.",
+        "approved_title": "¡Aprobado!",
+        "approved_badge": "Aprobado",
+        "approving": "Aprobando desafío...",
+        "approve_btn": "Aprobar",
+        "reshare_btn": "Re-compartir",
+        "share_link_instead": "Enviar enlace",
+        "share_verification_text": "Comparte este enlace de verificación para que puedan reclamar su recompensa.",
+        "sent_challenges": "Desafíos que Enviaste",
+        "pending_for": "Enviado a:",
+        "scan_to_verify": "Escanear QR de verificación",
+        "verified_title": "¡Desafío Verificado!",
+        "tap_to_expand": "Toca para ampliar",
+        "tap_to_close": "Toca cualquier lugar para cerrar",
+        "scan_success": "¡Verificado por {user}! Recompensas recibidas.",
+        "use_qr_instead": "Por favor usa la verificación QR dentro de la app."
     }
 }

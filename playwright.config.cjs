@@ -11,6 +11,7 @@ module.exports = defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:4173',
     trace: 'on-first-retry',
+    serviceWorkers: 'block',
   },
   projects: [
     {
@@ -21,7 +22,7 @@ module.exports = defineConfig({
   webServer: {
     command: 'bun run build && bun run preview -- --host 127.0.0.1 --port 4173',
     url: 'http://127.0.0.1:4173',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120 * 1000,
     stdout: 'pipe',
     stderr: 'pipe',

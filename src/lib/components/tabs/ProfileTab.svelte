@@ -182,10 +182,10 @@
                 {$_(I18N.levels[levelInfo.titleKey])}
             </span>
             <div class="w-full flex items-center gap-2 text-xs font-mono opacity-60 mb-1">
-                 <span>{player?.score || 0} pts</span>
+                      <span>{player?.score || 0} 🏆</span>
                  <span class="flex-1"></span>
                  {#if levelInfo.level < 4}
-                    <span>{levelInfo.max} pts</span>
+                          <span>{levelInfo.max} 🏆</span>
                  {:else}
                     <span>MAX</span>
                  {/if}

@@ -1,9 +1,10 @@
 const { test, expect } = require('@playwright/test');
-const { completeTutorial, clickTab, brutalCleanup } = require('./utils.cjs');
+const { resetAppState, completeTutorial, clickTab, brutalCleanup } = require('./utils.cjs');
 
 test.describe('Settings & Profile', () => {
 
     test.beforeEach(async ({ page }) => {
+        await resetAppState(page);
         await page.goto('/');
         await page.getByPlaceholder('Enter your nickname').fill('SettingsUser');
         await page.getByRole('button', { name: 'Continue' }).click();

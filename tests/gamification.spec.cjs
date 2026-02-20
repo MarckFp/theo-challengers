@@ -1,9 +1,10 @@
 const { test, expect } = require('@playwright/test');
-const { cleanUser, completeTutorial, clickTab, brutalCleanup } = require('./utils.cjs');
+const { resetAppState, completeTutorial, clickTab, brutalCleanup } = require('./utils.cjs');
 
 test.describe('Gamification Specs', () => {
 
     test.beforeEach(async ({ page }) => {
+        await resetAppState(page);
         await brutalCleanup(page);
         await page.goto('/');
         
@@ -17,7 +18,7 @@ test.describe('Gamification Specs', () => {
         // 1. Manually seed via IndexedDB with correct DB name
         await page.evaluate(async () => {
              return new Promise((resolve, reject) => {
-                 const request = indexedDB.open('theochallenguers');
+                 const request = indexedDB.open('theochallengers');
                  request.onerror = () => reject(request.error); 
                  request.onsuccess = (event) => {
                      const db = event.target.result;
@@ -68,7 +69,7 @@ test.describe('Gamification Specs', () => {
         await page.waitForLoadState('networkidle');
         const newCoins = await page.evaluate(async () => {
             return new Promise((resolve) => {
-                 const request = indexedDB.open('theochallenguers'); // Correct DB name
+                 const request = indexedDB.open('theochallengers');
                  request.onsuccess = (e) => {
                      const db = e.target.result;
                      const tx = db.transaction('player', 'readonly');
@@ -87,7 +88,7 @@ test.describe('Gamification Specs', () => {
         // 1. Seed Score
         await page.evaluate(async () => {
              return new Promise((resolve, reject) => {
-                 const request = indexedDB.open('theochallenguers'); // Correct DB name
+                 const request = indexedDB.open('theochallengers');
                  request.onerror = () => reject(request.error);
                  request.onsuccess = (event) => {
                      const db = event.target.result;

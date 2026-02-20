@@ -67,7 +67,7 @@
                         <tr>
                              <th>{$_(I18N.history.challenge)}</th>
                              <th>{$_(I18N.history.from)}</th>
-                             <th class="text-right">{$_(I18N.history.pts)}</th>
+                             <th class="text-right">🏆</th>
                              <th class="text-right">{$_(I18N.history.date)}</th>
                         </tr>
                     </thead>

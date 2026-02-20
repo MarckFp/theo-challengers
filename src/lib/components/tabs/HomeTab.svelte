@@ -14,10 +14,17 @@
         createChallengeLink, 
         commitChallengeLink,
         processIncomingChallengeLink, 
-        generateVerificationLink,
-        verifyClaimCode as serviceVerifyClaim,
         finalizeChallengeClaim,
     } from '$lib/services/challenge';
+    import type { SentChallenge } from '$lib/models/sentChallenge';
+    import {
+        isProximityApprovalQR,
+        isApprovalLink,
+        extractApprovalFromLink,
+        generateApprovalQR,
+        regenerateApproval,
+        processApprovalQR,
+    } from '$lib/services/proximity-verify';
     import { I18N } from '$lib/i18n-keys';
 
     // Components
@@ -35,11 +42,23 @@
     
     // Modal State
     let isSendModalOpen = $state(false);
-    let isVerificationModalOpen = $state(false); 
     let isScannerOpen = $state(false);
     let isShowQrModalOpen = $state(false); // To show general QR code
     let qrCodeTitle = $state('');
     let qrCodeValue = $state('');
+
+    // Sent Challenges (Player A sees these — both pending and accepted)
+    let sentChallenges = $state<SentChallenge[]>([]);
+
+    // Approval Modal State (Player A: shows approval QR + link)
+    let isApprovalModalOpen = $state(false);
+    let approvalQRData = $state<string | null>(null);
+    let approvalLink = $state<string | null>(null);
+    let approvalDone = $state(false);
+    let approvalError = $state<string | null>(null);
+
+    // Verification Success Modal (Player B: after scanning approval QR)
+    let verifySuccessData = $state<{title?: string; approver?: string; multiplier?: number; isStreakBonus?: boolean} | null>(null);
 
     let selectedItemId = $state<number | null>(null);
     let customMessage = $state('');
@@ -50,12 +69,27 @@
     // Pending claim request info (for Receiver)
     let pendingClaimRequest = $state<{id: string, from: string, item: any, message?: string} | null>(null);
 
-    // Pending sent info (for Sender)
-    let pendingVerificationId = $state<string | null>(null); // Input for claim code
-    let generatedAuthKey = $state<string | null>(null); // Output auth link
-
     // Copy Feedback State
     let copiedState = $state<string | null>(null);
+
+    // Expanded QR State (fullscreen overlay)
+    let expandedQrData = $state<string | null>(null);
+
+    function getSentChallengeTime(sc: SentChallenge): number {
+        return new Date(sc.createdAt).getTime();
+    }
+
+    let pendingSentChallenges = $derived.by(() =>
+        sentChallenges
+            .filter(sc => sc.status === 'pending')
+            .sort((a, b) => getSentChallengeTime(b) - getSentChallengeTime(a))
+    );
+
+    let verifiedSentChallenges = $derived.by(() =>
+        sentChallenges
+            .filter(sc => sc.status === 'accepted')
+            .sort((a, b) => getSentChallengeTime(b) - getSentChallengeTime(a))
+    );
 
     function copyToClipboard(text: string, id: string) {
         navigator.clipboard.writeText(text);
@@ -73,9 +107,24 @@
     }
 
     function handleScan(decodedText: string) {
-        isScannerOpen = false;
-        (document.getElementById('scanner_modal') as HTMLDialogElement)?.close();
+        closeScannerModal();
 
+        // 1. Check for proximity approval QR first (Player B scanning Player A's approval)
+        if (isProximityApprovalQR(decodedText)) {
+            handleApprovalScan(decodedText);
+            return;
+        }
+
+        // 2. Check for approval link
+        if (isApprovalLink(decodedText)) {
+            const raw = extractApprovalFromLink(decodedText);
+            if (raw) {
+                handleApprovalScan(raw);
+                return;
+            }
+        }
+
+        // 2. Fall back to URL-based handling
         try {
             if (!handleIncomingUrl(decodedText)) {
                 alert("Unknown QR Code format");
@@ -100,10 +149,18 @@
                 return true;
             }
 
+            // Approval link (Player B clicked a verification link from Player A)
+            const approveData = params.get('approve');
+            if (approveData) {
+                const raw = 'TA:' + approveData;
+                handleApprovalScan(raw);
+                return true;
+            }
+
+            // Legacy: verify_claim links
             const verifyData = params.get('verify_claim');
             if (verifyData) {
-                pendingVerificationId = verifyData;
-                openVerifyModal();
+                alert($_(I18N.proximity.use_qr_instead));
                 return true;
             }
 
@@ -134,6 +191,32 @@
                 .toArray()
         ).subscribe(result => {
             activeChallenges = result;
+        });
+        return () => subscription.unsubscribe();
+    });
+
+    // Fetch Sent Challenges (pending + accepted — Player A sees these)
+    $effect(() => {
+        if (!currentUser?.id) return;
+        const subscription = liveQuery(() =>
+            db.sentChallenge
+                .where('playerId').equals(currentUser.id!)
+                .filter(sc => sc.status === 'pending' || sc.status === 'accepted')
+                .toArray()
+        ).subscribe(result => {
+            const sorted = [...result].sort((a, b) => getSentChallengeTime(b) - getSentChallengeTime(a));
+            const pendingTop = sorted.filter(sc => sc.status === 'pending').slice(0, 5);
+            const acceptedTop = sorted.filter(sc => sc.status === 'accepted').slice(0, 5);
+
+            const picked = [...pendingTop, ...acceptedTop];
+
+            if (picked.length < 10) {
+                const pickedUuids = new Set(picked.map(sc => sc.uuid));
+                const remaining = sorted.filter(sc => !pickedUuids.has(sc.uuid));
+                picked.push(...remaining.slice(0, 10 - picked.length));
+            }
+
+            sentChallenges = picked;
         });
         return () => subscription.unsubscribe();
     });
@@ -178,16 +261,100 @@
         (document.getElementById('send_challenge_modal') as HTMLDialogElement)?.showModal();
     }
 
-    function openVerifyModal() {
-        isVerificationModalOpen = true;
-        (document.getElementById('verify_claim_modal') as HTMLDialogElement)?.showModal();
+    // ── Proximity verification helpers ──────────────────────────────
+
+    /** Player A: approve a sent challenge and show approval QR + link */
+    async function startApproval(sentChallenge: SentChallenge) {
+        if (!currentUser) return;
+
+        approvalQRData = null;
+        approvalLink = null;
+        approvalDone = false;
+        approvalError = null;
+        isApprovalModalOpen = true;
+        (document.getElementById('approval_modal') as HTMLDialogElement)?.showModal();
+
+        let result;
+        if (sentChallenge.status === 'accepted') {
+            // Already approved — just re-generate QR + link without modifying DB
+            result = regenerateApproval(sentChallenge, currentUser);
+        } else {
+            result = await generateApprovalQR(sentChallenge, currentUser);
+        }
+
+        if (result.success && result.qrData) {
+            approvalQRData = result.qrData;
+            approvalLink = result.link ?? null;
+            approvalDone = true;
+        } else {
+            approvalError = result.error || 'verification_failed';
+        }
     }
 
-    function closeVerifyModal() {
-        isVerificationModalOpen = false;
-        pendingVerificationId = null;
-        generatedAuthKey = null;
-        (document.getElementById('verify_claim_modal') as HTMLDialogElement)?.close();
+    function closeApprovalModal() {
+        isApprovalModalOpen = false;
+        approvalQRData = null;
+        approvalLink = null;
+        approvalDone = false;
+        approvalError = null;
+        (document.getElementById('approval_modal') as HTMLDialogElement)?.close();
+    }
+
+    async function handleApprovalShareViaApp() {
+        if (!approvalLink) return;
+        const title = $_(I18N.proximity.verify_title);
+        const text = $_(I18N.proximity.share_verification_text);
+
+        if (await tryAndroidNativeShare(title, text, approvalLink)) {
+            return;
+        }
+
+        if (navigator.share) {
+            try {
+                await navigator.share({ title, text, url: approvalLink });
+                return;
+            } catch (e: any) {
+                if (e?.name === 'AbortError') return;
+            }
+        }
+
+        // Fallback: copy to clipboard
+        try {
+            await navigator.clipboard.writeText(approvalLink);
+            alert($_(I18N.home.link_copied));
+        } catch {
+            // ignore
+        }
+    }
+
+    /** Player B: scanned an approval QR → award rewards (show success modal) */
+    async function handleApprovalScan(rawData: string) {
+        if (!currentUser) return;
+        const result = await processApprovalQR(rawData, currentUser);
+        if (result.success) {
+            verifySuccessData = {
+                title: result.challengeTitle,
+                approver: result.approverName,
+                multiplier: result.multiplier,
+                isStreakBonus: result.isStreakBonus,
+            };
+            (document.getElementById('verify_success_modal') as HTMLDialogElement)?.showModal();
+        } else {
+            const errKey = result.error ? 'store.' + result.error + '_error' : 'common.error';
+            alert($_(errKey));
+        }
+    }
+
+    function closeVerifySuccessModal() {
+        verifySuccessData = null;
+        (document.getElementById('verify_success_modal') as HTMLDialogElement)?.close();
+        window.location.reload();
+    }
+
+    /** Properly close scanner modal and stop camera */
+    function closeScannerModal() {
+        isScannerOpen = false;
+        (document.getElementById('scanner_modal') as HTMLDialogElement)?.close();
     }
 
     function closeSendModal() {
@@ -390,39 +557,7 @@
         }
     }
 
-    async function generateVerificationLinkForActive(challenge: Challenge) {
-         if (!currentUser) return;
-         
-         const link = await generateVerificationLink(challenge, currentUser);
-         
-         // Ask user if they want to copy link or show QR code
-         // For simplification, we'll auto-copy but provide UI elsewhere or just show alert with choices?
-         // Let's change the flow: Show a mini-modal with choices "Copy Link" or "Show QR"?
-         // Or just show QR immediately in a modal with the link below it. That's best for "proximity".
-         
-         showQr($_(I18N.home.share_verify_title), link);
-    }
-
-    async function verifyClaimCode() {
-        if (!currentUser || !pendingVerificationId) return;
-
-        // If it's a full URL, we might need to extract the verify_claim param or just pass it if the service handles it
-        // The service expects the raw ID usually, but let's check input
-        let code = pendingVerificationId;
-        try {
-            const url = new URL(code);
-            const p = url.searchParams.get('verify_claim');
-            if(p) code = p;
-        } catch {}
-
-        const result = await serviceVerifyClaim(currentUser, code);
-
-        if (result.success && result.authRawLink) {
-            generatedAuthKey = result.authRawLink;
-        } else {
-            alert("Verification Failed: " + (result.error ? $_('store.' + result.error + '_error') : "Unknown Error"));
-        }
-    }
+    /** Player B: verification handled by scanning Player A's approval QR via the scanner */
 
     async function finalizeClaim(authData: any) {
         if (!authData || !currentUser) return;
@@ -446,8 +581,8 @@
     }
 </script>
 
-<div class="space-y-6 relative">
-    <div class="navbar bg-base-100/50 backdrop-blur-md rounded-2xl shadow-sm sticky top-2 z-10">
+<div class="space-y-6 relative pb-28">
+    <div class="navbar bg-base-100/50 backdrop-blur-md rounded-2xl shadow-sm">
         <div class="flex-1">
             <a href="/" class="btn btn-ghost text-xl font-bold tracking-tight">
                 Theo <span class="text-primary">Challengers</span>
@@ -534,20 +669,99 @@
                         <p class="text-[10px] text-base-content/50 mt-1">From: {challenge.fromPlayer || 'System'}</p>
                     </div>
                     <div class="flex-none flex flex-col gap-2">
-                        <!-- Send Proof Button -->
+                        <!-- Scan Verification Button (Player B opens scanner to scan Player A's approval QR) -->
                          <button 
                             class="btn btn-sm btn-info btn-circle text-white shadow-sm" 
-                            onclick={(e) => { e.stopPropagation(); generateVerificationLinkForActive(challenge); }}
-                            title="Share for Verification"
+                            onclick={(e) => { e.stopPropagation(); isScannerOpen = true; (document.getElementById('scanner_modal') as HTMLDialogElement)?.showModal(); }}
+                            title={$_(I18N.proximity.scan_to_verify)}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.5h.75v.75h-.75v-.75ZM16.5 6.75h.75v.75h-.75v-.75ZM13.5 13.5h.75v.75h-.75v-.75ZM13.5 19.5h.75v.75h-.75v-.75ZM19.5 13.5h.75v.75h-.75v-.75ZM19.5 19.5h.75v.75h-.75v-.75ZM16.5 16.5h.75v.75h-.75v-.75Z" />
                             </svg>
                         </button>
                     </div>
                 </div>
             </div>
             {/each}
+        </div>
+    {/if}
+
+    <!-- Sent Challenges (Player A sees pending + accepted challenges they sent) -->
+    {#if sentChallenges.length > 0}
+        <div class="divider text-base-content/50 font-medium">{$_(I18N.proximity.sent_challenges)}</div>
+
+        <div class="space-y-3">
+            <details class="collapse collapse-arrow bg-base-100 border border-base-200" open>
+                <summary class="collapse-title font-semibold text-sm">
+                    {$_(I18N.proximity.sent_challenges)} ({pendingSentChallenges.length})
+                </summary>
+                <div class="collapse-content space-y-3">
+                    {#if pendingSentChallenges.length === 0}
+                        <p class="text-xs text-base-content/50">No pending challenges.</p>
+                    {:else}
+                        {#each pendingSentChallenges as sc}
+                            <div class="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-all group">
+                                <div class="card-body p-4 flex-row items-center gap-4">
+                                    <div class="flex-1">
+                                        <div class="flex justify-between items-start">
+                                            <h3 class="font-bold group-hover:text-secondary transition-colors">{$_(sc.title)}</h3>
+                                        </div>
+                                        <p class="text-xs text-base-content/80 mt-1">{$_(sc.description)}</p>
+                                    </div>
+                                    <div class="flex-none">
+                                        <button
+                                            class="btn btn-sm gap-1 shadow-sm btn-success"
+                                            onclick={(e) => { e.stopPropagation(); startApproval(sc); }}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                            </svg>
+                                            {$_(I18N.proximity.approve_btn)}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        {/each}
+                    {/if}
+                </div>
+            </details>
+
+            <details class="collapse collapse-arrow bg-base-100 border border-base-200">
+                <summary class="collapse-title font-semibold text-sm">
+                    {$_(I18N.proximity.approved_badge)} ({verifiedSentChallenges.length})
+                </summary>
+                <div class="collapse-content space-y-3">
+                    {#if verifiedSentChallenges.length === 0}
+                        <p class="text-xs text-base-content/50">No verified challenges yet.</p>
+                    {:else}
+                        {#each verifiedSentChallenges as sc}
+                            <div class="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-all group">
+                                <div class="card-body p-4 flex-row items-center gap-4">
+                                    <div class="flex-1">
+                                        <div class="flex justify-between items-start">
+                                            <h3 class="font-bold group-hover:text-secondary transition-colors">{$_(sc.title)}</h3>
+                                            <span class="badge badge-sm badge-success">{$_(I18N.proximity.approved_badge)}</span>
+                                        </div>
+                                        <p class="text-xs text-base-content/80 mt-1">{$_(sc.description)}</p>
+                                    </div>
+                                    <div class="flex-none">
+                                        <button
+                                            class="btn btn-sm gap-1 shadow-sm btn-outline btn-secondary"
+                                            onclick={(e) => { e.stopPropagation(); startApproval(sc); }}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 7.5h11.25m0 0-3-3m3 3-3 3M19.5 16.5H8.25m0 0 3-3m-3 3 3 3" />
+                                            </svg>
+                                            {$_(I18N.proximity.reshare_btn)}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        {/each}
+                    {/if}
+                </div>
+            </details>
         </div>
     {/if}
 
@@ -684,74 +898,59 @@
         </form>
     </dialog>
 
-     <!-- SENDER: Verify Claim Modal -->
-    <dialog id="verify_claim_modal" class="modal modal-bottom sm:modal-middle">
+     <!-- APPROVAL: Player A — Show approval QR/link for Player B -->
+    <dialog id="approval_modal" class="modal modal-bottom sm:modal-middle">
         <div class="modal-box">
             <form method="dialog">
-                 <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick={closeVerifyModal}>✕</button>
+                 <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick={closeApprovalModal}>✕</button>
             </form>
-            <h3 class="font-bold text-lg text-center">{$_(I18N.store.verify_claim_title)}</h3>
-            <p class="text-xs text-center mt-1 text-base-content/70">{$_(I18N.store.verify_claim_subtitle)}</p>
 
-            <div class="py-4">
-                {#if !generatedAuthKey}
-                    <div class="form-control w-full mt-4">
-                        <p class="text-xs text-center mb-2">{$_(I18N.store.wait_friend_verification)}</p>
-                        <textarea 
-                            class="textarea textarea-bordered h-24 w-full text-xs" 
-                            placeholder={$_(I18N.store.paste_claim_code)}
-                            bind:value={pendingVerificationId}
-                        ></textarea>
-                    </div>
+            {#if approvalError}
+                <!-- Error state -->
+                <div class="flex flex-col items-center justify-center py-8 gap-4">
+                    <div class="text-5xl">❌</div>
+                    <h3 class="font-bold text-lg text-error text-center">{$_('store.' + approvalError + '_error')}</h3>
+                    <button class="btn btn-ghost w-full" onclick={closeApprovalModal}>
+                        {$_(I18N.common.close)}
+                    </button>
+                </div>
+            {:else if approvalDone && approvalQRData}
+                <!-- QR view with direct share-via-app action -->
+                <div class="flex flex-col items-center justify-center py-4 gap-3">
+                    <div class="text-5xl">✅</div>
+                    <h3 class="font-bold text-xl text-success text-center">{$_(I18N.proximity.approved_title)}</h3>
 
-                    <div class="modal-action">
-                        <button class="btn btn-primary w-full" onclick={verifyClaimCode} disabled={!pendingVerificationId}>
-                            {$_(I18N.store.verify_confirm_btn)}
-                        </button>
-                    </div>
-                {:else}
-                    <div class="flex flex-col items-center justify-center py-4 gap-4">
-                         <div class="alert alert-success text-xs shadow-md">
-                            <span>{$_(I18N.home.challenge_accepted)}</span>
-                        </div>
-                        
-                         <!-- Confirmation QR Code -->
-                        <div class="flex justify-center mb-4">
-                             <div class="p-4 bg-white rounded-xl shadow-lg">
-                                <QrCode data={generatedAuthKey} size={200} />
-                             </div>
-                        </div>
-                        <p class="text-xs text-center font-bold">Show this to your friend to finalize!</p>
+                    <p class="text-sm text-center font-semibold text-base-content/70">{$_(I18N.proximity.show_qr_instruction)}</p>
 
-                         <div class="w-full">
-                            <p class="text-sm text-center mb-2">{@html $_(I18N.home.send_confirm_link_back)}</p>
-                            
-                            <button class="btn btn-primary w-full" onclick={() => {
-                                if (navigator.share && generatedAuthKey) {
-                                    navigator.share({
-                                        title: $_(I18N.home.share_confirmed_title),
-                                        text: $_(I18N.home.confirmed_msg),
-                                        url: generatedAuthKey
-                                    });
-                                } else if (generatedAuthKey) {
-                                    copyToClipboard(generatedAuthKey, 'confirm-link');
-                                }
-                            }}>
-                                {#if copiedState === 'confirm-link'}
-                                    {$_(I18N.home.link_copied)} ✅
-                                {:else}
-                                    {$_(I18N.store.share_confirmation_link)}
-                                {/if}
-                            </button>
-                        </div>
-                        
+                    <!-- Approval QR code -->
+                    <!-- svelte-ignore a11y_click_events_have_key_events -->
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                    <div class="p-4 bg-white rounded-xl shadow-lg cursor-pointer transition-transform hover:scale-105" 
+                         onclick={() => { expandedQrData = approvalQRData; (document.getElementById('expanded_qr_dialog') as HTMLDialogElement)?.showModal(); }}>
+                        <QrCode data={approvalQRData} size={220} />
                     </div>
-                {/if}
-            </div>
-            
+                    <p class="text-xs text-center text-base-content/50">{$_(I18N.proximity.tap_to_expand)}</p>
+
+                    <div class="divider my-0 text-xs text-base-content/50">{$_(I18N.home.or_separator)}</div>
+
+                    <button class="btn btn-outline btn-sm w-full" onclick={handleApprovalShareViaApp}>
+                        {$_(I18N.home.share_via_app)} 🔗
+                    </button>
+
+                    <button class="btn btn-primary w-full mt-1" onclick={closeApprovalModal}>
+                        {$_(I18N.common.close)}
+                    </button>
+                </div>
+            {:else}
+                <!-- Loading state -->
+                <div class="flex flex-col items-center justify-center py-12 gap-4">
+                    <span class="loading loading-spinner loading-lg text-primary"></span>
+                    <p class="text-sm text-base-content/70">{$_(I18N.proximity.approving)}</p>
+                </div>
+            {/if}
         </div>
         <form method="dialog" class="modal-backdrop">
-             <button onclick={closeVerifyModal}>{$_(I18N.common.close)}</button>
+             <button onclick={closeApprovalModal}>{$_(I18N.common.close)}</button>
         </form>
     </dialog>
 
@@ -759,11 +958,15 @@
     <dialog id="show_qr_modal" class="modal modal-bottom sm:modal-middle">
         <div class="modal-box flex flex-col items-center">
             <h3 class="font-bold text-lg text-center mb-4">{qrCodeTitle}</h3>
-            <div class="p-4 bg-white rounded-xl shadow-lg">
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div class="p-4 bg-white rounded-xl shadow-lg cursor-pointer transition-transform hover:scale-105"
+                 onclick={() => { if (qrCodeValue) { expandedQrData = qrCodeValue; (document.getElementById('expanded_qr_dialog') as HTMLDialogElement)?.showModal(); } }}>
                 {#if isShowQrModalOpen && qrCodeValue}
                     <QrCode data={qrCodeValue} size={250} />
                 {/if}
             </div>
+            <p class="text-xs text-center text-base-content/50 mt-2">{$_(I18N.proximity.tap_to_expand)}</p>
             <div class="modal-action">
                 <form method="dialog">
                     <button class="btn" onclick={closeShareChallengeFlow}>{$_(I18N.common.cancel)}</button>
@@ -776,21 +979,103 @@
     </dialog>
 
     <!-- QR Scanner Modal -->
-    <dialog id="scanner_modal" class="modal modal-bottom sm:modal-middle">
+    <dialog id="scanner_modal" class="modal modal-bottom sm:modal-middle" onclose={() => { isScannerOpen = false; }}>
         <div class="modal-box">
             <h3 class="font-bold text-lg text-center mb-4">Scan QR Code</h3>
             {#if isScannerOpen}
                 <QrScanner 
                     onScan={handleScan}
-                    onCancel={() => {
-                        isScannerOpen = false;
-                        (document.getElementById('scanner_modal') as HTMLDialogElement)?.close();
-                    }} 
+                    onCancel={closeScannerModal} 
                 />
             {/if}
         </div>
         <form method="dialog" class="modal-backdrop">
-            <button onclick={() => isScannerOpen = false}>close</button>
+            <button onclick={closeScannerModal}>close</button>
+        </form>
+    </dialog>
+
+    <!-- Verification Success Modal (Player B) -->
+    <dialog id="verify_success_modal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box">
+            {#if verifySuccessData}
+                <div class="flex flex-col items-center justify-center py-6 gap-4">
+                    <div class="text-7xl animate-bounce">🎉</div>
+                    <h3 class="font-bold text-2xl text-success text-center">{$_(I18N.proximity.verified_title)}</h3>
+                    <p class="text-center text-base-content/70">
+                        {$_(I18N.proximity.scan_success, { values: { user: verifySuccessData.approver || '?' } })}
+                    </p>
+                    {#if verifySuccessData.title}
+                        <div class="badge badge-lg badge-primary gap-2 py-4 font-bold">
+                            {$_(verifySuccessData.title)}
+                        </div>
+                    {/if}
+                    {#if verifySuccessData.isStreakBonus && verifySuccessData.multiplier && verifySuccessData.multiplier > 1}
+                        <div class="badge badge-secondary badge-lg gap-2 py-4">
+                            🔥 {$_(I18N.home.streak_bonus_applied, { values: { multiplier: verifySuccessData.multiplier } })}
+                        </div>
+                    {/if}
+                    <button class="btn btn-primary w-full mt-2" onclick={closeVerifySuccessModal}>
+                        {$_(I18N.common.close)}
+                    </button>
+                </div>
+            {/if}
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button onclick={closeVerifySuccessModal}>{$_(I18N.common.close)}</button>
+        </form>
+    </dialog>
+
+    <!-- Fullscreen Expanded QR Dialog (uses <dialog> for proper top-layer rendering) -->
+    <dialog id="expanded_qr_dialog" class="modal">
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="modal-box bg-transparent shadow-none max-w-none w-auto flex flex-col items-center justify-center gap-6 qr-overlay"
+             onclick={() => { expandedQrData = null; (document.getElementById('expanded_qr_dialog') as HTMLDialogElement)?.close(); }}>
+            <!-- QR card -->
+            <div class="relative bg-white rounded-3xl shadow-2xl p-8 qr-card">
+                <div class="absolute -inset-1 rounded-3xl bg-gradient-to-br from-primary/30 via-secondary/20 to-accent/30 blur-md qr-glow"></div>
+                <div class="relative bg-white rounded-2xl p-4">
+                    {#if expandedQrData}
+                        <QrCode data={expandedQrData} size={Math.min(window.innerWidth - 80, window.innerHeight - 200, 380)} />
+                    {/if}
+                </div>
+            </div>
+            <p class="text-white/80 text-sm font-medium animate-pulse">{$_(I18N.proximity.tap_to_close)}</p>
+        </div>
+        <form method="dialog" class="modal-backdrop bg-black/60 backdrop-blur-sm qr-backdrop">
+            <button onclick={() => expandedQrData = null}>{$_(I18N.common.close)}</button>
         </form>
     </dialog>
 </div>
+
+<style>
+    .qr-overlay {
+        animation: overlay-in 0.3s ease-out;
+    }
+    .qr-backdrop {
+        animation: fade-in 0.3s ease-out;
+    }
+    .qr-card {
+        animation: card-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .qr-glow {
+        animation: glow-pulse 2.5s ease-in-out infinite;
+    }
+
+    @keyframes overlay-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @keyframes card-pop {
+        0% { opacity: 0; transform: scale(0.7) translateY(30px); }
+        100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes glow-pulse {
+        0%, 100% { opacity: 0.4; transform: scale(1); }
+        50% { opacity: 0.8; transform: scale(1.03); }
+    }
+</style>

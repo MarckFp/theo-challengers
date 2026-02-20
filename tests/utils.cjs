@@ -1,5 +1,30 @@
 const { expect } = require('@playwright/test');
 
+async function resetAppState(page) {
+    await page.goto('/');
+    await page.evaluate(async () => {
+        try {
+            localStorage.clear();
+            sessionStorage.clear();
+        } catch (e) {}
+
+        const deleteDb = (name) =>
+            new Promise((resolve) => {
+                try {
+                    const req = indexedDB.deleteDatabase(name);
+                    req.onsuccess = () => resolve(true);
+                    req.onerror = () => resolve(false);
+                    req.onblocked = () => resolve(false);
+                } catch (e) {
+                    resolve(false);
+                }
+            });
+
+        await deleteDb('theochallengers');
+        await deleteDb('theochallenguers');
+    });
+}
+
 // Brutally remove all modals locally
 async function brutalCleanup(page) {
   try {
@@ -98,7 +123,7 @@ async function clickTab(page, index) {
 async function seedCoins(page, amount) {
     return await page.evaluate((coins) => {
          return new Promise((resolve) => {
-             const openReq = indexedDB.open('theochallenguers');
+             const openReq = indexedDB.open('theochallengers');
              openReq.onsuccess = (e) => {
                  try {
                      const db = e.target.result;
@@ -130,7 +155,7 @@ async function seedCoins(page, amount) {
 async function seedInventory(page, itemData = {}) {
     return await page.evaluate((data) => {
          return new Promise((resolve) => {
-             const openReq = indexedDB.open('theochallenguers');
+             const openReq = indexedDB.open('theochallengers');
              openReq.onsuccess = (e) => {
                  try {
                      const db = e.target.result;
@@ -145,7 +170,7 @@ async function seedInventory(page, itemData = {}) {
                             if (!p.tutorialSeen) { p.tutorialSeen = true; pStore.put(p); }
                             
                             iStore.put({
-                                player_id: p.id,
+                                playerId: p.id,
                                 title: data.title || "challenges.generic_challenge.title",
                                 description: data.description || "Generic desc",
                                 points: data.points || 5,
@@ -164,6 +189,7 @@ async function seedInventory(page, itemData = {}) {
 }
 
 module.exports = {
+    resetAppState,
     completeTutorial,
     clickTab,
     brutalCleanup,

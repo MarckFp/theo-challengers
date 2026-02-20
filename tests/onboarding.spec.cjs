@@ -1,10 +1,10 @@
 const { test, expect } = require('@playwright/test');
-const { completeTutorial, clickTab } = require('./utils.cjs');
+const { resetAppState, completeTutorial, clickTab } = require('./utils.cjs');
 
 test.describe('Onboarding & Profile', () => {
 
     test.beforeEach(async ({ page }) => {
-        // Ensure fresh state
+        await resetAppState(page);
         await page.goto('/');
     });
 
